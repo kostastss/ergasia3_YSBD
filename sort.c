@@ -36,6 +36,27 @@ void sort_FileInChunks(int file_desc, int numBlocksInChunk){
     }
 }
 
+// Συγκρίνει ενα ένα τα records και τα ταξινομεί, ώστε όταν τελειώσει να είναι σε αλβαβητική σειρά μέσα στο CHUNK. 
 void sort_Chunk(CHUNK* chunk){
+    int n = chunk->recordsInChunk;  // Παίρνουμε πόσα records έχει το CHUNK για να ταξινομήσουμε.
+    if(n <= 0)  // Δεν υπάρχουν records για ταξινόμηση.
+        return;
 
+    Record r1, r2;
+
+    // Αλγόριθμος bubble sort.
+    for(int i = 0; i < n-1; i++){
+        for(int j = 0; j < n-1-i; j++){
+            // Παίρνουμε δύο συνεχόμενα records για να τα συγκρίνουμε, αφού ελέγξουμε πρώτα ότι υπάρχουν.
+            if(CHUNK_GetIthRecordInChunk(chunk, j, &r1) != 0)
+                return;
+            if(CHUNK_GetIthRecordInChunk(chunk, j+1, &r2) != 0)
+                return;
+            // Ελέγχουμε εάν χρειάζεται να κάνουμε swap τις θέσεις τους.
+            if(shouldSwap(&r1, &r2)){
+                CHUNK_UpdateIthRecord(chunk, j, r2);
+                CHUNK_UpdateIthRecord(chunk, j+1, r1);
+            }
+        }
+    }
 }
