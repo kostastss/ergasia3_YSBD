@@ -17,12 +17,65 @@ int CHUNK_GetNext(CHUNK_Iterator *iterator,CHUNK* chunk){
 
 }
 
+// Οι δύο παρακάτω συναρτήσεις έχουν παρόμοια λογική. Η διαφορά είναι ότι η μία γυρνάει δείκτη με το record,
+// ενώ η άλλη κάνει update το υπάρχον, με το record που της δώθηκε σαν παράμετρος.
 int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
+    // Κάνουμε έλεγχο εάν το i είναι έγκυρο. Το records είναι σαν "array" που ξεκινάει να μετράει από το 0.
+    if(i<0 || i >= chunk->recordsInChunk){
+        return -1;
+    }
 
+    int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
+    int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
+    int blockId = chunk->from_BlockId;  // Από που ξεικάμε να ψάχνουμε.
+
+    // Ξεκινάμε να ψάχνουμε.
+    while(blockId <= chunk->to_BlockId){
+        int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+
+        if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
+            // H HP_GetRecord δεν λέει στην περιγραφή του .h αρχείου εάν επιστρέφει -1, 0 ή 1 σε περίπτωση αποτυχίας. 
+            HP_GetRecord(file_desc, blockId, offset, record);
+            HP_Unpin(file_desc, blockId);
+        }else{  // Δεν το βρήκαμε, συνεχίζουμε.
+            offset -= counter;
+            blockId++;
+        }
+    }
+
+    return -1;  // Δεν επιστέφει αποτέλεσμα.
 }
 
+// Παρόμοια λογική υλοποίησης με την CHUNK_GetIthRecordInChunk, με την διαφορά στη συνάρτηση HP_UpdateRecord.
 int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){
+    // Κάνουμε έλεγχο εάν το i είναι έγκυρο. Το records είναι σαν "array" που ξεκινάει να μετράει από το 0.
+    if(i<0 || i >= chunk->recordsInChunk){
+        return -1;
+    }
 
+    int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
+    int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
+    int blockId = chunk->from_BlockId;  // Από που ξεικάμε να ψάχνουμε.
+
+    // Ξεκινάμε να ψάχνουμε.
+    while(blockId <= chunk->to_BlockId){
+        int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+
+        if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
+            int result = HP_UpdateRecord(file_desc, blockId, offset, record);
+            HP_Unpin(file_desc, blockId);
+            if(result == 1){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 1.
+                return 0;
+            }else{  // Η HP_UpdateRecord απέτυχε.
+                return -1;
+            }
+        }else{  // Δεν το βρήκαμε, συνεχίζουμε.
+            offset -= counter;
+            blockId++;
+        }
+    }
+
+    return -1;  // Δεν επιστέφει αποτέλεσμα.
 }
 
 // Τυπώνεις κάθε block του CHUNK.
