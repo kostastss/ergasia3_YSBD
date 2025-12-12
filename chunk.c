@@ -14,6 +14,37 @@ CHUNK_Iterator CHUNK_CreateIterator(int fileDesc, int blocksInChunk){
 
 // Παίρνει το επόμενο κομμάτι του αρχείου και το περνάει σε ένα CHUNK.
 int CHUNK_GetNext(CHUNK_Iterator *iterator,CHUNK* chunk){
+    if(iterator->current > iterator->lastBlocksID){ // Έλεγχος εάν υπάρχουν άλλα chunks.
+        return -1;  // Επιστρέφεις αποτυχία.
+    }
+
+    // Εδώ εξετάζουμε την περίπτωση το τελευταίο chunk έχει λιγότερα μπλοκ από τα προηγούμενα. 
+    // Πχ. αν κάθε ένα έχει 5 μπλοκ και τα συνολικά είναι 17,
+    // στο τελευταίο θα προσπαθήσουμε να προσπελάσουμε το 18ο και θα πάρουμε segmentation fault.
+    // Άρα λέμε στο πρόγραμμα να σταματάει στο 17ο. +1 για να παίρνεις και το current.
+    int remainingBlocks = iterator->lastBlocksID - iterator->current + 1;
+    int thisChunkBlocks = iterator->blocksInChunk;
+    if (thisChunkBlocks > remainingBlocks) {
+        thisChunkBlocks = remainingBlocks;
+    }
+
+    // Συμπλήρωση του chunk struct.
+    chunk->file_desc = iterator->file_desc;
+    chunk->from_BlockId = iterator->current;
+    chunk->to_BlockId = iterator->current + thisChunkBlocks - 1;    // -1 γιατί έχουμε και το current.
+    chunk->blocksInChunk = thisChunkBlocks;
+
+    // Μετράς πόσα records έχει συνολικά το chunk. Για κάθε μπλοκ του chunk, παίρνεςι τα records και τα αρθοίζεις.
+    int totalRecords = 0;
+    for (int i = chunk->from_BlockId; i <= chunk->to_BlockId; i++) {
+        totalRecords += HP_GetRecordCounter(chunk->file_desc, i);
+    }
+    chunk->recordsInChunk = totalRecords;
+
+    // Εδώ ορίζεις σε δείκτη ποιό είναι το επόμενο block.
+    iterator->current += thisChunkBlocks;
+
+    return 0;   // Επιστρέφεις επιτυχία.
 
 }
 
