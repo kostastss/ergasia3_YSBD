@@ -118,11 +118,36 @@ void CHUNK_Print(CHUNK chunk){
     }
 }
 
-
 CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk){
-
+    CHUNK_RecordIterator it;    // Τοπική μεταβλητή για chunk, block & record.
+    it.chunk = *chunk;  // Αντιγραφή ολόκληρου του CHUNK struct μέσα στον iterator.
+    it.currentBlockId = chunk->from_BlockId;    // Από που ξεκινάς την ανάγνωση.
+    it.cursor = 0;  // Ποιό record μέσα στο block διαβάζω.
+    return it;
 }
 
+// Επιστρέφει το record που δείχνει αυτή τη στιγμή ο iterator και μετά προχωρά τον δείκτη, 
+// έτσι ώστε στην επόμενη κλήση να επιστραφεί το επόμενο record.
 int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator,Record* record){
-    
+    int file_desc = iterator->chunk.file_desc;  // Παίρνεις το file descriptor.
+
+    // Εξωτερικό loop για να ελέγχουμε εάν υπάρχουν blocks μέσα στο chunk που δεν εχουμε ελέγξει ακόμα.
+    while (iterator->currentBlockId <= iterator->chunk.to_BlockId) {
+        int recCount = HP_GetRecordCounter(file_desc, iterator->currentBlockId);    // Πόσα records έχει αυτότο μπλοκ.
+
+        // Εάν υπάρχουν και άλλα records μέσα σε αυτό το block, χωρίς να μετράς και το τελυταίο.
+        if (iterator->cursor < recCount) {
+            // Παίρνεις το παρόν record και προχωράς στο επόμενο του ίδιου block. 
+            HP_GetRecord(file_desc, iterator->currentBlockId, iterator->cursor, record);
+            HP_Unpin(file_desc, iterator->currentBlockId);
+            iterator->cursor++;
+
+            return 0;   // Επιστρέφεις επιτυχία.
+        } else {    // Αλλιώς, πας στο επόμενο block και ξεκινάς να ελέγχεις από το πρώτο του record.
+            iterator->currentBlockId++;
+            iterator->cursor = 0;
+        }
+    }
+
+    return -1;  // Η συνάρτηση επιστρέφει αποτυχία.
 }
