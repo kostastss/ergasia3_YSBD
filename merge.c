@@ -8,6 +8,8 @@
 #include "record.h"
 #include "merge.h"
  
+// Εδώ μαζεύουμε μέχρι bWay ταξινομημένους συρμούς, κρατάμε το τρέχον record από τον καθένα.
+// Κάθε φορά γράφουμε στο output το μικρότερο, και προχωράμε μόνο τον συρμό που το έδωσε, μέχρι να τελειώσουν.
 void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc ){
     // Αν bWay <= 0 δεν έχει νόημα να τρέξει merge.
     if (bWay <= 0) {
