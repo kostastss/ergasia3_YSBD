@@ -37,7 +37,9 @@ int CHUNK_GetNext(CHUNK_Iterator *iterator,CHUNK* chunk){
     // Μετράς πόσα records έχει συνολικά το chunk. Για κάθε μπλοκ του chunk, παίρνεςι τα records και τα αρθοίζεις.
     int totalRecords = 0;
     for (int i = chunk->from_BlockId; i <= chunk->to_BlockId; i++) {
-        totalRecords += HP_GetRecordCounter(chunk->file_desc, i);
+        int temp = HP_GetRecordCounter(chunk->file_desc, i);
+        HP_Unpin(chunk->file_desc,i);
+        totalRecords += temp;
     }
     chunk->recordsInChunk = totalRecords;
 
@@ -63,6 +65,7 @@ int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
     // Ξεκινάμε να ψάχνουμε.
     while(blockId <= chunk->to_BlockId){
         int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+        HP_Unpin(file_desc, blockId);
 
         if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
             // H HP_GetRecord δεν λέει στην περιγραφή του .h αρχείου εάν επιστρέφει -1, 0 ή 1 σε περίπτωση αποτυχίας. 
@@ -91,6 +94,7 @@ int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){
     // Ξεκινάμε να ψάχνουμε.
     while(blockId <= chunk->to_BlockId){
         int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+        HP_Unpin(file_desc, blockId);
 
         if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
             int result = HP_UpdateRecord(file_desc, blockId, offset, record);
@@ -134,7 +138,8 @@ int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator,Record* record){
     // Εξωτερικό loop για να ελέγχουμε εάν υπάρχουν blocks μέσα στο chunk που δεν εχουμε ελέγξει ακόμα.
     while (iterator->currentBlockId <= iterator->chunk.to_BlockId) {
         int recCount = HP_GetRecordCounter(file_desc, iterator->currentBlockId);    // Πόσα records έχει αυτότο μπλοκ.
-
+        HP_Unpin(file_desc, iterator->currentBlockId);
+        
         // Εάν υπάρχουν και άλλα records μέσα σε αυτό το block, χωρίς να μετράς και το τελυταίο.
         if (iterator->cursor < recCount) {
             // Παίρνεις το παρόν record και προχωράς στο επόμενο του ίδιου block. 
