@@ -1,119 +1,125 @@
-// Συνάρτηση main για να δοκιμάζει τον κώδικα που έχουμε φτιάξει.
-
+// examples/my_main.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "bf.h"
 #include "hp_file.h"
+#include "record.h"
 #include "sort.h"
 #include "merge.h"
-#include "bf.h"
 
-// Υπολογίζει την στρογγυλοποίηση προς τα πάνω της διαίρεσης.
+#define RECORDS_NUM 500
+#define FILE_NAME   "data.db"
+#define OUT_PREFIX  "merge_out"
+
 static int ceil_div(int a, int b) {
     return (a + b - 1) / b;
 }
 
-// Χτίζει όνομα αρχείου για κάθε pass ως έξοδο.
 static void make_pass_filename(char *out, size_t out_sz, const char *prefix, int pass) {
-    snprintf(out, out_sz, "%s_pass_%d.hpf", prefix, pass);
+    // Θα βγάζει: merge_out0.db, merge_out1.db, ...
+    snprintf(out, out_sz, "%s%d.db", prefix, pass);
 }
 
-// Η main συνάρτηση.
-int main(int argc, char **argv) {
-    // Ελέγχουμε πόσα ορίσματα έχουν πεαστεί στο πρόγραμμα.
-    if (argc != 4) {
-        printf("ERROR in inputs\n");
+static int createAndPopulateHeapFile(const char* filename) {
+    remove(filename);   // αν δεν υπάρχει, δεν πειράζει
+
+    // Δημιουργία heap file
+    if (HP_CreateFile((char*)filename) != 0) {
+        printf("Error: HP_CreateFile failed\n");
+        return -1;
+    }
+
+    int fd;
+    if (HP_OpenFile((char*)filename, &fd) != 0) {
+        printf("Error: HP_OpenFile failed\n");
+        return -1;
+    }
+
+    // Γέμισμα με τυχαία records (όπως το sort_main)
+    srand(12569874);
+    for (int i = 0; i < RECORDS_NUM; i++) {
+        Record r = randomRecord();
+        HP_InsertEntry(fd, r);
+    }
+
+    return fd;
+}
+
+int main(void) {
+    int chunkSize = 5;
+    int bWay = 4;
+
+    // Απαραίτητο init για BF layer
+    BF_Init(LRU);
+
+    // 1) Φτιάξε & γέμισε input heap file
+    int inFD = createAndPopulateHeapFile(FILE_NAME);
+    if (inFD < 0) {
+        BF_Close();
         return 1;
     }
 
-    const char *inputName = argv[1];    // Παίρνουμε το inpute heap file.
-    int m = atoi(argv[2]);  // Παίνρουμε πόσα blocks ανά chunk στο αρχικό sort.
-    int bWay = atoi(argv[3]);   // Πόσους συρμούς συγχωνεύεις ανά πέρασμα.
+    // 2) Sort phase: ταξινόμηση ανά chunk
+    sort_FileInChunks(inFD, chunkSize);
 
-    // m και bWay πρέπει να είναι θετικά.
-    if (m <= 0 || bWay <= 0) {
-        printf("Error: m and bWay must be positive integers.\n");
-        return 1;
-    }
+    // 3) Υπολογισμός πόσοι συρμοί υπάρχουν αρχικά
+    int lastBlockId = HP_GetIdOfLastBlock(inFD);  // data blocks: 1..lastBlockId
+    int dataBlocks = lastBlockId;
+    int k = ceil_div(dataBlocks, chunkSize);
 
-    // Άνοιγμα input heap file.
-    int inFD;
-    if (HP_OpenFile((char*)inputName, &inFD) != 0) {    
-        printf("Error: couldn't open file.\n"); // Αποτυχία OpenFile.
-        return 1;
-    }
-
-    // Ταξινομεί in-place σε chunks των m blocks
-    sort_FileInChunks(inFD, m);
-
-    // Υπολογίζουμε πόσα chunks έχει το αρχείο τώρα.
-    // lastBlockId περιλαμβάνει τα data blocks.
-    int lastBlockId = HP_GetIdOfLastBlock(inFD);
-    int dataBlocks = lastBlockId;   // Τα data ξεκινάνε από block 1.
-    int k = ceil_div(dataBlocks, m);    // k = πλήθος αρχικών chunk.
-
-    // Κάθε πέρασμα φτιάχνει νέο αρχείο.
-    int pass = 1;
-    char outName[256];  // Buffer για το όνομα του output αρχείου σε κάθε pass.
-
-    // Εναλλάσσουμε input/output file descriptors ανά πέρασμα.
+    int pass = 0;
     int currentInFD = inFD;
-    char currentInName[256];    // Όνομα του τρέχοντος input αρχείου.
-    strncpy(currentInName, inputName, sizeof(currentInName));   // Αντιγράφουμε το inputName στον buffer.
-    currentInName[sizeof(currentInName) - 1] = '\0';
-    // Το chunkSize του τρέχοντος pass.
-    int currentChunkSize = m;
+    int currentChunkSize = chunkSize;
 
-    // Όσο υπάρχουν περισσότερα από ένα chunk. Όταν k==1 έχουμε το τελικό αρχείο.
+    // 4) Merge passes: κάθε pass γράφει σε νέο heap file
     while (k > 1) {
-        // Φτιάχνουμε όνομα για το output για την παρούσα επανάληψη του loop.
-        make_pass_filename(outName, sizeof(outName), "merge_out", pass);
-
-        // Δημιουργούμε νέο heap file για το αποτέλεσμα.
+        char outName[128];
+        make_pass_filename(outName, sizeof(outName), OUT_PREFIX, pass);
+        
+        remove(outName);
+        
         if (HP_CreateFile(outName) != 0) {
-            printf("Error couldn't create file.\n");    // Αδυναμία δημιουργείας αρχείου.
+            printf("Error: HP_CreateFile failed for %s\n", outName);
             HP_CloseFile(currentInFD);
+            BF_Close();
             return 1;
         }
 
-        int outFD;  // File descriptor για το output.
+        int outFD;
         if (HP_OpenFile(outName, &outFD) != 0) {
-            printf("Error couldn't open file.\n");  // Αδυναμία ανοίγματος αρχείου.
+            printf("Error: HP_OpenFile failed for %s\n", outName);
             HP_CloseFile(currentInFD);
+            BF_Close();
             return 1;
         }
 
-        // Κάνουμε συγχώνευση bWay chunks μεγέθους currentChunkSize blocks.
         merge(currentInFD, currentChunkSize, bWay, outFD);
 
-        // Κλείνουμε output και το προηγούμενο input.
-        HP_CloseFile(outFD);
+        // κλείσε το προηγούμενο input, και το output
         HP_CloseFile(currentInFD);
+        HP_CloseFile(outFD);
 
-        // Το νέο input για την επόμενη loop είναι το αρχείο που μόλις φτιάξαμε.
+        // το output γίνεται input για το επόμενο pass
         if (HP_OpenFile(outName, &currentInFD) != 0) {
-            printf("Error couldn't ppen file.\n");  // Αδυναμία ανοίγαμτος αρχείου.
+            printf("Error: HP_OpenFile re-open failed for %s\n", outName);
+            BF_Close();
             return 1;
         }
 
-        // Ενημερώνουμε το τρέχον όνομα input, ώστε στο τέλος να ξέρουμε ποιο αρχείο είναι το τελικό.
-        strncpy(currentInName, outName, sizeof(currentInName));
-        currentInName[sizeof(currentInName) - 1] = '\0';
-
-        // Κάθε νέος συρμός έχει currentChunkSize * bWay blocks
-        // Το πλήθος chunk γίνεται ceil(k / bWay)
+        // ενημέρωση για επόμενο pass
         k = ceil_div(k, bWay);
         currentChunkSize *= bWay;
         pass++;
     }
 
-    // Τελικό αποτέλεσμα. Το currentInFD δείχνει στο τελικό ταξινομημένο αρχείο.
-    printf("Final sorted file: %s\n", currentInName);
+    printf("Done. Final sorted file produced in last merge output.\n");
 
-    // Τύπωσε όλες τις εγγραφές.
+    // Προαιρετικά: τύπωσε για επιβεβαίωση
     HP_PrintAllEntries(currentInFD);
-    // Κλείσιμο του αρχείου.
-    HP_CloseFile(currentInFD);
 
+    HP_CloseFile(currentInFD);
+    BF_Close();
     return 0;
 }
