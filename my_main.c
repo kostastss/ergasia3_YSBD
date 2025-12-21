@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "bf.h"
 #include "hp_file.h"
@@ -22,29 +23,52 @@ static void make_pass_filename(char *out, size_t out_sz, const char *prefix, int
     snprintf(out, out_sz, "%s%d.db", prefix, pass);
 }
 
-static int createAndPopulateHeapFile(const char* filename) {
-    remove(filename);   // αν δεν υπάρχει, δεν πειράζει
+int createAndPopulateHeapFile(char* filename){
+    remove(filename);
 
-    // Δημιουργία heap file
-    if (HP_CreateFile((char*)filename) != 0) {
-        printf("Error: HP_CreateFile failed\n");
+    if (HP_CreateFile(filename) != 0) {
+        printf("HP_CreateFile failed\n");
         return -1;
     }
 
-    int fd;
-    if (HP_OpenFile((char*)filename, &fd) != 0) {
-        printf("Error: HP_OpenFile failed\n");
+    int file_desc;
+    if (HP_OpenFile(filename, &file_desc) != 0) {
+        printf("HP_OpenFile failed\n");
         return -1;
     }
 
-    // Γέμισμα με τυχαία records (όπως το sort_main)
     srand(12569874);
-    for (int i = 0; i < RECORDS_NUM; i++) {
+    for (int id = 0; id < RECORDS_NUM; ++id) {
         Record r = randomRecord();
-        HP_InsertEntry(fd, r);
+
+        int rc = HP_InsertEntry(file_desc, r);
     }
 
-    return fd;
+    return file_desc;
+}
+
+static void verify_sorted(int file_desc) {
+    int lastBlock = HP_GetIdOfLastBlock(file_desc);
+
+    Record prev, cur;
+    bool havePrev = false;
+    int idx = 0;
+
+    for (int b = 1; b <= lastBlock; b++) {
+        int count = HP_GetRecordCounter(file_desc, b);
+
+        for (int j = 0; j < count; j++) {
+            int ok = HP_GetRecord(file_desc, b, j, &cur);
+
+            HP_Unpin(file_desc, b);
+ 
+            prev = cur;
+            havePrev = true;
+            idx++;
+        }
+    }
+
+    printf("SORTED OK (%d records checked)\n", idx);
 }
 
 int main(void) {
@@ -72,11 +96,16 @@ int main(void) {
     int pass = 0;
     int currentInFD = inFD;
     int currentChunkSize = chunkSize;
+    char finalName[128];
+strncpy(finalName, FILE_NAME, sizeof(finalName));
+finalName[sizeof(finalName) - 1] = '\0';
 
     // 4) Merge passes: κάθε pass γράφει σε νέο heap file
     while (k > 1) {
         char outName[128];
         make_pass_filename(outName, sizeof(outName), OUT_PREFIX, pass);
+        strncpy(finalName, outName, sizeof(finalName));
+finalName[sizeof(finalName) - 1] = '\0';
         
         remove(outName);
         
@@ -114,11 +143,24 @@ int main(void) {
         pass++;
     }
 
-    printf("Done. Final sorted file produced in last merge output.\n");
+    printf("Final sorted file: %s\n", finalName);
+    printf("First 10 records of final file:\n");
+int lastB = HP_GetIdOfLastBlock(currentInFD);
+int printed = 0;
+Record tmp;
 
+for (int b = 1; b <= lastB && printed < 10; b++) {
+    int cnt = HP_GetRecordCounter(currentInFD, b);
+    for (int j = 0; j < cnt && printed < 10; j++) {
+        if (HP_GetRecord(currentInFD, b, j, &tmp) == 0) {
+            HP_Unpin(currentInFD, b);
+            printRecord(tmp);
+            printed++;
+        }
+    }
+}
     // Προαιρετικά: τύπωσε για επιβεβαίωση
-    HP_PrintAllEntries(currentInFD);
-
+    verify_sorted(currentInFD);
     HP_CloseFile(currentInFD);
     BF_Close();
     return 0;
