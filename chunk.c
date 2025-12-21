@@ -59,7 +59,6 @@ int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
 
     int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
     int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
-      // Από που ξεικάμε να ψάχνουμε.
 
     // Ξεκινάμε να ψάχνουμε.
     for(int blockId = chunk->from_BlockId; blockId <= chunk->to_BlockId; blockId++ ){
@@ -67,7 +66,7 @@ int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
         if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
             // H HP_GetRecord δεν λέει στην περιγραφή του .h αρχείου εάν επιστρέφει -1, 0 ή 1 σε περίπτωση αποτυχίας. 
             int result = HP_GetRecord(file_desc, blockId, offset, record);
-            if(result == 0){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 1.
+            if(result == 0){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 0.
                 HP_Unpin(file_desc, blockId);
                 return 0;
             }else{  // Η HP_UpdateRecord απέτυχε.
@@ -90,14 +89,13 @@ int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){
 
     int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
     int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
-      // Από που ξεικάμε να ψάχνουμε.
 
     // Ξεκινάμε να ψάχνουμε.
     for(int blockId = chunk->from_BlockId; blockId <= chunk->to_BlockId; blockId++){
         int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
         if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
             int result = HP_UpdateRecord(file_desc, blockId, offset, record);
-            if(result == 0){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 1.
+            if(result == 0){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 0.
                 HP_Unpin(file_desc, blockId);
                 return 0;
             }else{  // Η HP_UpdateRecord απέτυχε.
@@ -146,13 +144,13 @@ int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator,Record* record){
             // Παίρνεις το παρόν record και προχωράς στο επόμενο του ίδιου block. 
             int result = HP_GetRecord(file_desc, iterator->currentBlockId, iterator->cursor, record);
             iterator->cursor++;
-            if (result == 0) { // ✅ success
-                // ✅ Unpin ΜΟΝΟ μετά από επιτυχημένο GetRecord
+            if (result == 0) { // success
+                // Unpin μόνο μετά από επιτυχημένο GetRecord.
                 HP_Unpin(file_desc, iterator->currentBlockId);
 
                 return 0;
             } else {
-                // Αν απέτυχε, ΜΗΝ κάνεις unpin (μπορεί να μην έγινε pin)
+                // Αν απέτυχε, ΜΗΝ κάνεις unpin.
                 return -1;
             }
         } else {    // Αλλιώς, πας στο επόμενο block και ξεκινάς να ελέγχεις από το πρώτο του record.
