@@ -8,7 +8,7 @@
 #include "merge.h"
 #include "chunk.h"
 
-// Επιστρέφει εάν πρέπει να γίνει swap του rec1 με το rec2, συγκρίνοντας αλβαβιτικά το όνομα με το επώνυμο.
+// Επιστρέφει εάν πρέπει να γίνει swap του rec1 με το rec2, συγκρίνοντας αλβαβιτικά το όνομα και μετά το επώνυμο.
 bool shouldSwap(Record* rec1,Record* rec2){
     int cmpr = strcmp(rec1->name, rec2->name);
     if(cmpr > 0){
