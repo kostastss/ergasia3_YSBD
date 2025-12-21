@@ -1,0 +1,1820 @@
+==========================================================================================
+ΤΟ CHAT GPT ΔΕΝ ΕΠΙΤΡΕΠΕΙ ΝΑ ΚΑΝΩ COPY PASTE ΚΑΘΩΣ ΟΙ ΑΠΑΝΤΗΣΕΙΣ ΤΟΥ ΕΙΝΑΙ RENDERED BLOCKS.
+ΟΠΟΤΕ ΜΠΟΡΩ ΝΑ ΚΑΝΩ COPY PASTE ΜΟΝΟ ΟΣΑ ΤΟΥ ΕΙΠΑ ΕΓΩ.
+==========================================================================================
+
+πρέπει να κάνω αυτή την εργασία, η οποία μπορεί να γίνει με την βοήθειά σου. Ποιά αρχεία θες να σου ανεβάσω; Θέλω να ,με βοηθήσεις να καταλάβω ποιες συναρτήσεις πρέπει να κάνω
+bf.h
+File
+chunk.h
+File
+hp_file.h
+File
+merge.h
+File
+record.h
+File
+sort.h
+File
+αυτά είναι όλα τα αρχεία του include
+chunk.c
+File
+merge.c
+File
+record.c
+File
+sort.c
+File
+chunk.c: #include <merge.h>
+#include <stdio.h>
+#include "chunk.h"
+
+
+CHUNK_Iterator CHUNK_CreateIterator(int fileDesc, int blocksInChunk){
+    
+}
+
+int CHUNK_GetNext(CHUNK_Iterator *iterator,CHUNK* chunk){
+
+}
+
+int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
+
+}
+
+int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){
+
+}
+
+void CHUNK_Print(CHUNK chunk){
+
+}
+
+
+CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk){
+
+}
+
+int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator,Record* record){
+    
+}, merge.c: #include <merge.h>
+#include <stdio.h>
+#include <stdbool.h>
+
+void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc ){
+    
+}, short.c: #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "bf.h"
+#include "hp_file.h"
+#include "record.h"
+#include "sort.h"
+#include "merge.h"
+#include "chunk.h"
+
+bool shouldSwap(Record* rec1,Record* rec2){
+    return false;
+}
+
+void sort_FileInChunks(int file_desc, int numBlocksInChunk){
+
+}
+
+void sort_Chunk(CHUNK* chunk){
+
+}
+εξήγησέ μου για την sort_FileInChunks, τι πρέπει να κάνει, για να τη σκεφτώ από μόνος μου.
+γράψε τον κώδικα αλλά εξήγησέ μου τι κάνεις σε κάθε γραμμή
+πάμε στην CHUNK_Print. Πως πρέπει να την δουλέψω, ποια είναι η λογική;
+πάμε στην sort_Chunk. Στην ουσία παίρνεις ένα ένα τα μπλοκ μέσα στο chunk και τα κάνεις swap ανάλογα με το αποτέλεσμα της shouldSwap;
+πάμε στις updateithrecord και getithrecord. Αυτές πιστεύω ότι έχουν την ιδια λογική στο πως θα βρεις το αρχείο που ζητάς, που είναι το i. Η μία κάνει update το αρχείο με το record που έχει στις παραμέτρους και η άλλη παίρνει τηεγγραφή από το chunk και την επιστρέφειμέσα από την παράμετρο ercord που εχει στις παραμέτρους;
+εξήγησέ   μου για το mapping που λες
+εξήγησέμου γιατί αυτή η συνθήκη if (offset < recCount) μας λέει ότι βρήκαμε αυτό   που ψάχνουμε
+αυτή η συνθήκη δεν πρέπει να ελέγχει για έγγυρο i: if(i<=0 || i > chunk->recordsInChunk). Επειδή το 0 περιέχει τα metadata και το τελειταίο record περιέχει δεδομένα
+εξήγησέ μου γι αυτά int offset = i;
+int file_desc = chunk->file_desc;
+int blockId = chunk->from_BlockId;
+στην ουσία η διαφορά αυτων των δύο είναι μέσασ το if(offset<recCount). Η μία καλέι την HP_GetRecord και η άλλη την HP_UpdateRecord?
+σωστός ο κώδιακας? // Οι δύο παρακάτω συναρτήσεις έχουν παρόμοια λογική. Η διαφορά είναι ότι η μία γυρνάει δείκτη με το record,
+// ενώ η άλλη κάνει update το υπάρχον, με το record που της δώθηκε σαν παράμετρος.
+int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
+    // Κάνουμε έλεγχο εάν το i είναι έγκυρο. Το records είναι σαν "array" που ξεκινάει να μετράει από το 0.
+    if(i<0 || i >= chunk->recordsInChunk){
+        return -1;
+    }
+
+    int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
+    int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
+    int blockId = chunk->from_BlockId;  // Από που ξεικάμε να ψάχνουμε.
+
+    // Ξεκινάμε να ψάχνουμε.
+    while(blockId <= chunk->to_BlockId){
+        int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+
+        if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
+            int result = HP_GetRecord(file_desc, blockId, offset, record);
+            HP_Unpin(file_desc, blockId);
+            if(result == 1){    // Αν η HP_GetRecord ήταν επιτυχής επιστρέφει 1.
+                return 0;
+            }else{  // Η HP_GetRecord απέτυχε.
+                return -1;
+            }
+        }else{  // Δεν το βρήκαμε, συνεχίζουμε.
+            offset -= counter;
+            blockId++;
+        }
+    }
+
+    return -1;  // Δεν επιστέφει αποτέλεσμα.
+}
+
+int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){
+    // Κάνουμε έλεγχο εάν το i είναι έγκυρο. Το records είναι σαν "array" που ξεκινάει να μετράει από το 0.
+    if(i<0 || i >= chunk->recordsInChunk){
+        return -1;
+    }
+
+    int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
+    int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
+    int blockId = chunk->from_BlockId;  // Από που ξεικάμε να ψάχνουμε.
+
+    // Ξεκινάμε να ψάχνουμε.
+    while(blockId <= chunk->to_BlockId){
+        int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+
+        if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
+            int result = HP_UpdateRecord(file_desc, blockId, offset, record);
+            HP_Unpin(file_desc, blockId);
+            if(result == 1){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 1.
+                return 0;
+            }else{  // Η HP_UpdateRecord απέτυχε.
+                return -1;
+            }
+        }else{  // Δεν το βρήκαμε, συνεχίζουμε.
+            offset -= counter;
+            blockId++;
+        }
+    }
+
+    return -1;  // Δεν επιστέφει αποτέλεσμα.
+}
+πάμε στην getNext. Γυρνάει το επόμενο record?
+Για την CHUNK_GetNext. Εξήγησέ μου την λογική της συνάρτησης για την λύση της
+αυτό τον κώδικα δεν είχες δώσει? int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK* chunk) {
+    if (iterator->current > iterator->lastBlocksID) {
+        return -1;  // δεν υπάρχουν άλλα chunks
+    }
+
+    int remainingBlocks = iterator->lastBlocksID - iterator->current + 1;
+    int thisChunkBlocks = iterator->blocksInChunk;
+    if (thisChunkBlocks > remainingBlocks) {
+        thisChunkBlocks = remainingBlocks;
+    }
+
+    chunk->file_desc = iterator->file_desc;
+    chunk->from_BlockId = iterator->current;
+    chunk->to_BlockId = iterator->current + thisChunkBlocks - 1;
+    chunk->blocksInChunk = thisChunkBlocks;
+
+    // μετράμε πόσες εγγραφές έχει συνολικά αυτό το chunk
+    int totalRecords = 0;
+    for (int b = chunk->from_BlockId; b <= chunk->to_BlockId; b++) {
+        totalRecords += HP_GetRecordCounter(chunk->file_desc, b);
+    }
+    chunk->recordsInChunk = totalRecords;
+
+    iterator->current += thisChunkBlocks;
+    return 0;
+}
+εξήγησέ μου για το τελευταίο block
+πάμε στην τελευταία συνάρτηση της chunk.c 
+εξήγησέ μου κάθε γραμμή του CHUNK_CreateRecordIterator
+τώρα πάμε στην CHUNK_GetNextRecord
+απ ότι καταλαβαίνω, η συνάρτηση αυτή επιστρέφει το επόμενο record από αυτό που δείχνει ο δείκτη, ενώ εγώ τώρα απλώς επιστρέφω το παρόν record και αυξάνω τον δείκτη κατά ενα
+πάμε στην merge
+πάμε καλύτερα με αυτή την εκδοχή #include <stdio.h>
+#include <stdbool.h>
+#include "merge.h"
+#include "chunk.h"
+#include "sort.h"
+#include "hp_file.h"
+#include "record.h"
+
+void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc ){
+    CHUNK_Iterator it = CHUNK_CreateIterator(input_FileDesc, chunkSize);
+
+    CHUNK chunks[64];  // βάζω ένα upper bound, π.χ. max bWay = 64
+    CHUNK_RecordIterator recIters[64];
+    Record current[64];
+    bool hasRecord[64];
+
+    if (bWay > 64) {
+        // βάλε assert ή απλά κόψε
+        bWay = 64;
+    }
+
+    while (1) {
+        int numChunks = 0;
+
+        // πάρε μέχρι bWay chunks από το input
+        for (int i = 0; i < bWay; i++) {
+            if (CHUNK_GetNext(&it, &chunks[i]) != 0) {
+                break;
+            }
+            recIters[i] = CHUNK_CreateRecordIterator(&chunks[i]);
+            if (CHUNK_GetNextRecord(&recIters[i], &current[i]) == 0) {
+                hasRecord[i] = true;
+                numChunks++;
+            } else {
+                hasRecord[i] = false;
+            }
+        }
+
+        if (numChunks == 0) {
+            // δεν υπάρχουν άλλοι συρμοί
+            break;
+        }
+
+        // b-way merge αυτών των numChunks συρμών
+        while (1) {
+            int best = -1;
+
+            for (int i = 0; i < numChunks; i++) {
+                if (!hasRecord[i]) continue;
+                if (best == -1) {
+                    best = i;
+                } else {
+                    // αν current[best] πρέπει να πάει *μετά* από current[i]
+                    // τότε το καλύτερο (μικρότερο) είναι το i
+                    if (shouldSwap(&current[best], &current[i])) {
+                        best = i;
+                    }
+                }
+            }
+
+            if (best == -1) {
+                // όλοι οι συρμοί τελείωσαν
+                break;
+            }
+
+            // γράψε το μικρότερο record στο output heap file
+            HP_InsertEntry(output_FileDesc, current[best]);
+
+            // φέρε το επόμενο record από τον αντίστοιχο συρμό
+            if (CHUNK_GetNextRecord(&recIters[best], &current[best]) != 0) {
+                hasRecord[best] = false;
+            }
+        }
+    }
+}
+εξήγησε τον κώδικα γραμμή γραμμή
+γιατί 64?
+θέλω να γίνει η συνάρτηση χωρίς χρήση του 64
+εξήγησε γραμμή γραμμή τον κώδικα
+Ωραία, έκανα όλες τις συναρτήσεις που μου ζητάει η εργασία. Τώρα μένει να κάνω μία main?
+Εργασία 3 (1).pdf
+PDF
+βλέπω ότι στην εκφώνηση της εργασίας ζητάει: Ολόκληρος ο φάκελος μαζί με Makefile που θα κάνει link τον κώδικά σας με την
+υπάρχουσα main και με τις υπόλοιπες mains που θα υλοποιήσετε.
+πάμε πρώτα να φτιάξουμε μία main και μετά θα αλλάξουμε το makefile
+εξήγησε γραμμή γραμμή τον κώδικα
+πάμε τώρα να βάλουμε την my_main στο makfile ώστε να το τρέξουμε και να δούμε εάν η εργασία είναι σωστή. sort:
+	@echo " Compile sort_main ...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/sort_main.c ./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c -lbf -lhp_file -o ./build/sort_main -O2
+Compile my_main ...
+gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/my_main.c ./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c -lbf -lhp_file -o ./build/sort_main -O2
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_Block_Destroy'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_GetBlockCounter'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_CloseFile'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_Block_GetData'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_Block_SetDirty'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_PrintError'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_Block_Init'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_AllocateBlock'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_GetBlock'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_UnpinBlock'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_OpenFile'
+/usr/bin/ld: ./lib//libhp_file.so: undefined reference to BF_CreateFile'
+collect2: error: ld returned 1 exit status
+make: *** [Makefile:3: sort] Error 1
+Compile my_main ...
+gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/my_main.c ./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c -lbf -lhp_file -lbf -o ./build/my_main -O2
+εβγαλε segmetation fault
+έτρεξα αυτή την εντολή ./build/my_main input.hpf 5 4.  Μετά έκανα το gdb που λες και έβγαλε αυτό GNU gdb (Ubuntu 15.0.50.20240403-0ubuntu1) 15.0.50.20240403-git
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+--Type <RET> for more, q to quit, c to continue without paging--
+gdb ./build/my_main
+GNU gdb (Ubuntu 15.0.50.20240403-0ubuntu1) 15.0.50.20240403-git
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+--Type <RET> for more, q to quit, c to continue without paging--c
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from ./build/my_main...
+(gdb) run input.hpf 5 4
+Starting program: /home/kostas/Desktop/Exercise3/build/my_main input.hpf 5 4
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) y
+Debuginfod has been enabled.
+To make this setting permanent, add 'set debuginfod enabled on' to .gdbinit.
+Downloading separate debug info for system-supplied DSO at 0x7ffff7fc3000
+Downloading separate debug info for ./lib/libhp_file.so                                                                                    
+Downloading separate debug info for ./lib/libbf.so                                                                                         
+[Thread debugging using libthread_db enabled]                                                                                              
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+Downloading separate debug info for /lib/x86_64-linux-gnu/libstdc++.so.6
+Downloading separate debug info for /lib/x86_64-linux-gnu/libgcc_s.so.1                                                                    
+                                                                                                                                           
+Program received signal SIGSEGV, Segmentation fault.
+0x00007ffff7c12ea6 in memory_manager::MemoryManager::GetBlock(int, memory_manager::File*, memory_manager::Block*) () from ./lib/libbf.so
+(gdb) bt
+#0  0x00007ffff7c12ea6 in memory_manager::MemoryManager::GetBlock(int, memory_manager::File*, memory_manager::Block*) ()
+   from ./lib/libbf.so
+#1  0x00007ffff7c0defc in BF_GetBlock () from ./lib/libbf.so
+#2  0x00007ffff7fb9519 in HP_OpenFile () from ./lib/libhp_file.so
+#3  0x00005555555573dc in main (argc=<optimized out>, argv=0x7fffffffd708) at ./examples/my_main.c:41
+(gdb) 
+αυτή είναι η sort_mainQ #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "merge.h"
+
+#define RECORDS_NUM 500 // you can change it if you want
+#define FILE_NAME "data.db"
+#define OUT_NAME "out"
+
+
+
+
+int createAndPopulateHeapFile(char* filename);
+
+void sortPhase(int file_desc,int chunkSize);
+
+void mergePhases(int inputFileDesc,int chunkSize,int bWay, int* fileCounter);
+
+int nextOutputFile(int* fileCounter);
+
+int main() {
+  int chunkSize=5;
+  int bWay= 4;
+  int fileIterator;
+  //
+  BF_Init(LRU);
+  int file_desc = createAndPopulateHeapFile(FILE_NAME);
+  sortPhase(file_desc,chunkSize);
+  mergePhases(file_desc,chunkSize,bWay,&fileIterator);
+}
+
+int createAndPopulateHeapFile(char* filename){
+  HP_CreateFile(filename);
+  
+  int file_desc;
+  HP_OpenFile(filename, &file_desc);
+
+  Record record;
+  srand(12569874);
+  for (int id = 0; id < RECORDS_NUM; ++id)
+  {
+    record = randomRecord();
+    HP_InsertEntry(file_desc, record);
+  }
+  return file_desc;
+}
+
+/*Performs the sorting phase of external merge sort algorithm on a file specified by 'file_desc', using chunks of size 'chunkSize'*/
+void sortPhase(int file_desc,int chunkSize){ 
+  sort_FileInChunks( file_desc, chunkSize);
+}
+
+/* Performs the merge phase of the external merge sort algorithm  using chunks of size 'chunkSize' and 'bWay' merging. The merge phase may be performed in more than one cycles.*/
+void mergePhases(int inputFileDesc,int chunkSize,int bWay, int* fileCounter){
+  int oututFileDesc;
+  while(chunkSize<=HP_GetIdOfLastBlock(inputFileDesc)){
+    oututFileDesc =   nextOutputFile(fileCounter);
+    merge(inputFileDesc, chunkSize, bWay, oututFileDesc );
+    HP_CloseFile(inputFileDesc);
+    chunkSize*=bWay;
+    inputFileDesc = oututFileDesc;
+  }
+  HP_CloseFile(oututFileDesc);
+}
+
+/*Creates a sequence of heap files: out0.db, out1.db, ... and returns for each heap file its corresponding file descriptor. */
+int nextOutputFile(int* fileCounter){
+    char mergedFile[50];
+    char tmp[] = "out";
+    sprintf(mergedFile, "%s%d.db", tmp, (*fileCounter)++);
+    int file_desc;
+    HP_CreateFile(mergedFile);
+    HP_OpenFile(mergedFile, &file_desc);
+    return file_desc;
+} και ατή είναι η my_main: // Συνάρτηση main για να δοκιμάζει τον κώδικα που έχουμε φτιάξει.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "hp_file.h"
+#include "sort.h"
+#include "merge.h"
+#include "bf.h"
+
+// Υπολογίζει την στρογγυλοποίηση προς τα πάνω της διαίρεσης.
+static int ceil_div(int a, int b) {
+    return (a + b - 1) / b;
+}
+
+// Χτίζει όνομα αρχείου για κάθε pass ως έξοδο.
+static void make_pass_filename(char *out, size_t out_sz, const char *prefix, int pass) {
+    snprintf(out, out_sz, "%s_pass_%d.hpf", prefix, pass);
+}
+
+// Η main συνάρτηση.
+int main(int argc, char **argv) {
+    // Ελέγχουμε πόσα ορίσματα έχουν πεαστεί στο πρόγραμμα.
+    if (argc != 4) {
+        printf("ERROR in inputs\n");
+        return 1;
+    }
+
+    BF_Init(LRU);
+
+    const char *inputName = argv[1];    // Παίρνουμε το inpute heap file.
+    int m = atoi(argv[2]);  // Παίνρουμε πόσα blocks ανά chunk στο αρχικό sort.
+    int bWay = atoi(argv[3]);   // Πόσους συρμούς συγχωνεύεις ανά πέρασμα.
+
+    // m και bWay πρέπει να είναι θετικά.
+    if (m <= 0 || bWay <= 0) {
+        printf("Error: m and bWay must be positive integers.\n");
+        return 1;
+    }
+
+    // Άνοιγμα input heap file.
+    int inFD;
+    if (HP_OpenFile((char*)inputName, &inFD) != 0) {    
+        printf("Error: couldn't open file.\n"); // Αποτυχία OpenFile.
+        return 1;
+    }
+
+    // Ταξινομεί in-place σε chunks των m blocks
+    sort_FileInChunks(inFD, m);
+
+    // Υπολογίζουμε πόσα chunks έχει το αρχείο τώρα.
+    // lastBlockId περιλαμβάνει τα data blocks.
+    int lastBlockId = HP_GetIdOfLastBlock(inFD);
+    int dataBlocks = lastBlockId;   // Τα data ξεκινάνε από block 1.
+    int k = ceil_div(dataBlocks, m);    // k = πλήθος αρχικών chunk.
+
+    // Κάθε πέρασμα φτιάχνει νέο αρχείο.
+    int pass = 1;
+    char outName[256];  // Buffer για το όνομα του output αρχείου σε κάθε pass.
+
+    // Εναλλάσσουμε input/output file descriptors ανά πέρασμα.
+    int currentInFD = inFD;
+    char currentInName[256];    // Όνομα του τρέχοντος input αρχείου.
+    strncpy(currentInName, inputName, sizeof(currentInName));   // Αντιγράφουμε το inputName στον buffer.
+    currentInName[sizeof(currentInName) - 1] = '\0';
+    // Το chunkSize του τρέχοντος pass.
+    int currentChunkSize = m;
+
+    // Όσο υπάρχουν περισσότερα από ένα chunk. Όταν k==1 έχουμε το τελικό αρχείο.
+    while (k > 1) {
+        // Φτιάχνουμε όνομα για το output για την παρούσα επανάληψη του loop.
+        make_pass_filename(outName, sizeof(outName), "merge_out", pass);
+
+        // Δημιουργούμε νέο heap file για το αποτέλεσμα.
+        if (HP_CreateFile(outName) != 0) {
+            printf("Error couldn't create file.\n");    // Αδυναμία δημιουργείας αρχείου.
+            HP_CloseFile(currentInFD);
+            return 1;
+        }
+
+        int outFD;  // File descriptor για το output.
+        if (HP_OpenFile(outName, &outFD) != 0) {
+            printf("Error couldn't open file.\n");  // Αδυναμία ανοίγματος αρχείου.
+            HP_CloseFile(currentInFD);
+            return 1;
+        }
+
+        // Κάνουμε συγχώνευση bWay chunks μεγέθους currentChunkSize blocks.
+        merge(currentInFD, currentChunkSize, bWay, outFD);
+
+        // Κλείνουμε output και το προηγούμενο input.
+        HP_CloseFile(outFD);
+        HP_CloseFile(currentInFD);
+
+        // Το νέο input για την επόμενη loop είναι το αρχείο που μόλις φτιάξαμε.
+        if (HP_OpenFile(outName, &currentInFD) != 0) {
+            printf("Error couldn't ppen file.\n");  // Αδυναμία ανοίγαμτος αρχείου.
+            return 1;
+        }
+
+        // Ενημερώνουμε το τρέχον όνομα input, ώστε στο τέλος να ξέρουμε ποιο αρχείο είναι το τελικό.
+        strncpy(currentInName, outName, sizeof(currentInName));
+        currentInName[sizeof(currentInName) - 1] = '\0';
+
+        // Κάθε νέος συρμός έχει currentChunkSize * bWay blocks
+        // Το πλήθος chunk γίνεται ceil(k / bWay)
+        k = ceil_div(k, bWay);
+        currentChunkSize *= bWay;
+        pass++;
+    }
+
+    // Τελικό αποτέλεσμα. Το currentInFD δείχνει στο τελικό ταξινομημένο αρχείο.
+    printf("Final sorted file: %s\n", currentInName);
+
+    // Τύπωσε όλες τις εγγραφές.
+    HP_PrintAllEntries(currentInFD);
+    // Κλείσιμο του αρχείου.
+    HP_CloseFile(currentInFD);
+    BF_Close();
+
+    return 0;
+}
+μου βγάζει ERROR in inputs. Μπορείς να μου στείλεις την δική μου my_main διορθωμένη εκεί που πρέπει;
+έκανα copy paste την my_main που μου έδωσες και πάλι βγάζει error in inputs. Ατό είναι το makefile: sort:
+	@echo " Compile sort_main ...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/sort_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/sort_main
+
+my_main:
+	@echo " Compile my_main ...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/my_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/my_main
+99:ERROR in inputs
+376:ERROR in inputs ως αποτέλεσμα στην πρώτη εντολή
+grep -Rnw . -e "ERROR in inputs" : grep: ./build/my_main: binary file matches
+./examples/my_main.c:42://     //     printf("ERROR in inputs\n"); , head -n 30 ./examples/my_main.c : // // Συνάρτηση main για να δοκιμάζει τον κώδικα που έχουμε φτιάξει.
+
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <string.h>
+// #include "hp_file.h"
+// #include "sort.h"
+// #include "merge.h"
+// #include "bf.h"
+// #include "record.h"
+// #define RECORDS_NUM 500
+// #define FILE_NAME "data.db"
+
+// static int createAndPopulateHeapFile(const char* filename) {
+//     HP_CreateFile((char*)filename);
+//     int fd;
+//     HP_OpenFile((char*)filename, &fd);
+
+//     srand(12569874);
+//     for (int i = 0; i < RECORDS_NUM; i++) {
+//         Record r = randomRecord();
+//         HP_InsertEntry(fd, r);
+//     }
+//     return fd;
+// }
+
+// // Υπολογίζει την στρογγυλοποίηση προς τα πάνω της διαίρεσης.
+// static int ceil_div(int a, int b) {
+//     return (a + b - 1) / b;
+// } , rm -f ./build/my_main
+make my_main
+ Compile my_main ...
+gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+        ./examples/my_main.c \
+        ./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+        -lhp_file -lbf \
+        -o ./build/my_main , στην strings ./build/my_main | grep -n "ERROR in inputs" δεν βγάζει τίποτα 
+Τρέχω το build και το πρόγραμμα δεν τελειώνει ποτέ 
+gdb ./build/my_main
+GNU gdb (Ubuntu 15.0.50.20240403-0ubuntu1) 15.0.50.20240403-git
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+--Type <RET> for more, q to quit, c to continue without paging--c
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from ./build/my_main...
+(gdb) run
+Starting program: /home/kostas/Desktop/Exercise3/build/my_main 
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) y
+Debuginfod has been enabled.
+To make this setting permanent, add 'set debuginfod enabled on' to .gdbinit.
+Downloading separate debug info for system-supplied DSO at 0x7ffff7fc3000
+Downloading separate debug info for ./lib/libhp_file.so                                                                                    
+Downloading separate debug info for ./lib/libbf.so                                                                                         
+[Thread debugging using libthread_db enabled]                                                                                              
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+BF Error: The file is already being used
+[Inferior 1 (process 13199) exited with code 04]
+(gdb) bt
+No stack.
+τρέχω το ./build/my_main, δημιουργεί το αρχείο input.bpf και μένει εκεί χωρίς αποτέλεσμα και χωρίς να τελειώνει
+#0  0x00007ffff7c0fefc in std::pair<int, int>::pair<int, true>(int&&, int const&) () from ./lib/libbf.so
+#1  0x00007ffff7c0f1e4 in memory_manager::Cache::get(memory_manager::File*, int const&, memory_manager::Block*) () from ./lib/libbf.so
+#2  0x00007ffff7c12eee in memory_manager::MemoryManager::GetBlock(int, memory_manager::File*, memory_manager::Block*) ()
+   from ./lib/libbf.so
+#3  0x00007ffff7c0defc in BF_GetBlock () from ./lib/libbf.so
+#4  0x00007ffff7fb9e9b in HP_Unpin () from ./lib/libhp_file.so
+#5  0x0000555555558333 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:70
+#6  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#7  0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#8  0x0000555555557629 in main () at ./examples/my_main.c:206
+gdb ./build/my_main
+GNU gdb (Ubuntu 15.0.50.20240403-0ubuntu1) 15.0.50.20240403-git
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from ./build/my_main...
+(gdb) run
+Starting program: /home/kostas/Desktop/Exercise3/build/my_main 
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) y
+Debuginfod has been enabled.
+To make this setting permanent, add 'set debuginfod enabled on' to .gdbinit.
+Downloading separate debug info for system-supplied DSO at 0x7ffff7fc3000
+Downloading separate debug info for ./lib/libhp_file.so                                                                                    
+Downloading separate debug info for ./lib/libbf.so                                                                                         
+[Thread debugging using libthread_db enabled]                                                                                              
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+BF Error: The file is already being used
+[Inferior 1 (process 14418) exited with code 04]
+(gdb) bt
+No stack.
+gdb ./build/my_main
+GNU gdb (Ubuntu 15.0.50.20240403-0ubuntu1) 15.0.50.20240403-git
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+--Type <RET> for more, q to quit, c to continue without paging--c
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from ./build/my_main...
+(gdb) run
+Starting program: /home/kostas/Desktop/Exercise3/build/my_main 
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) y
+Debuginfod has been enabled.
+To make this setting permanent, add 'set debuginfod enabled on' to .gdbinit.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+^C
+Program received signal SIGINT, Interrupt.
+0x00007ffff7c0eb36 in std::_List_node<unsigned long>::_M_valptr() () from ./lib/libbf.so
+(gdb) bt
+#0  0x00007ffff7c0eb36 in std::_List_node<unsigned long>::_M_valptr() () from ./lib/libbf.so
+#1  0x00007ffff7c110bc in std::__cxx11::_List_base<std::pair<int, int>, std::allocator<std::pair<int, int> > >::_M_inc_size(unsigned long)
+    () from ./lib/libbf.so
+#2  0x00007ffff7c1073a in void std::__cxx11::list<std::pair<int, int>, std::allocator<std::pair<int, int> > >::_M_insert<std::pair<int, int> const&>(std::_List_iterator<std::pair<int, int> >, std::pair<int, int> const&) () from ./lib/libbf.so
+#3  0x00007ffff7c10036 in std::__cxx11::list<std::pair<int, int>, std::allocator<std::pair<int, int> > >::push_front(std::pair<int, int> const&) () from ./lib/libbf.so
+#4  0x00007ffff7c0f3ea in memory_manager::Cache::unpin(memory_manager::File*, int const&, bool) () from ./lib/libbf.so
+#5  0x00007ffff7c1304e in memory_manager::MemoryManager::UnpinBlock(int, memory_manager::File*, bool) () from ./lib/libbf.so
+#6  0x00007ffff7c0e04c in BF_UnpinBlock () from ./lib/libbf.so
+int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){     // Κάνουμε έλεγχο εάν το i είναι έγκυρο. Το records είναι σαν "array" που ξεκινάει να μετράει από το 0.     if(i<0 || i >= chunk->recordsInChunk){         return -1;     }      int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.     int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.     int blockId = chunk->from_BlockId;  // Από που ξεικάμε να ψάχνουμε.      // Ξεκινάμε να ψάχνουμε.     while(blockId <= chunk->to_BlockId){         int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.         HP_Unpin(file_desc, blockId);          if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.             // H HP_GetRecord δεν λέει στην περιγραφή του .h αρχείου εάν επιστρέφει -1, 0 ή 1 σε περίπτωση αποτυχίας.              HP_GetRecord(file_desc, blockId, offset, record);             HP_Unpin(file_desc, blockId);         }else{  // Δεν το βρήκαμε, συνεχίζουμε.             offset -= counter;             blockId++;         }     }      return -1;  // Δεν επιστέφει αποτέλεσμα. }  // Παρόμοια λογική υλοποίησης με την CHUNK_GetIthRecordInChunk, με την διαφορά στη συνάρτηση HP_UpdateRecord. int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){     // Κάνουμε έλεγχο εάν το i είναι έγκυρο. Το records είναι σαν "array" που ξεκινάει να μετράει από το 0.     if(i<0 || i >= chunk->recordsInChunk){         return -1;     }      int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.     int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.     int blockId = chunk->from_BlockId;  // Από που ξεικάμε να ψάχνουμε.      // Ξεκινάμε να ψάχνουμε.     while(blockId <= chunk->to_BlockId){         int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.         HP_Unpin(file_desc, blockId);          if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.             int result = HP_UpdateRecord(file_desc, blockId, offset, record);             HP_Unpin(file_desc, blockId);             if(result == 1){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 1.                 return 0;             }else{  // Η HP_UpdateRecord απέτυχε.                 return -1;             }         }else{  // Δεν το βρήκαμε, συνεχίζουμε.             offset -= counter;             blockId++;         }     }      return -1;  // Δεν επιστέφει αποτέλεσμα. }, // Retrieves the current record count in a specified block.
+int HP_GetRecordCounter(int file_desc, int blockId); * The function HP_Unpin is designed to release the block identified by blockId in the heap file associated with the descriptor file_desc. If the unpin is successful, it returns 0; otherwise, it returns -1.*/
+int HP_Unpin(int file_desc, int blockId);
+#0  0x00007ffff7c1018b in std::_List_node<std::pair<std::pair<int, int>, std::pair<memory_manager::Block, std::_List_iterator<std::pair<int, int> > > > >::_M_valptr() () from ./lib/libbf.so
+#1  0x00007ffff7c0fadb in std::_List_iterator<std::pair<std::pair<int, int>, std::pair<memory_manager::Block, std::_List_iterator<std::pair<int, int> > > > >::operator->() const () from ./lib/libbf.so
+#2  0x00007ffff7c1220b in memory_manager::Hash::find(std::pair<int, int> const&) () from ./lib/libbf.so
+#3  0x00007ffff7c0f39a in memory_manager::Cache::unpin(memory_manager::File*, int const&, bool) () from ./lib/libbf.so
+#4  0x00007ffff7c1304e in memory_manager::MemoryManager::UnpinBlock(int, memory_manager::File*, bool) () from ./lib/libbf.so
+#5  0x00007ffff7c0e04c in BF_UnpinBlock () from ./lib/libbf.so
+#6  0x00007ffff7fb9eb1 in HP_Unpin () from ./lib/libhp_file.so
+#7  0x0000555555558333 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:70
+#8  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#9  0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#10 0x0000555555557629 in main () at ./examples/my_main.c:206
+#0  0x00007ffff7c1072d in void std::__cxx11::list<std::pair<int, int>, std::allocator<std::pair<int, int> > >::_M_insert<std::pair<int, int> const&>(std::_List_iterator<std::pair<int, int> >, std::pair<int, int> const&) () from ./lib/libbf.so
+#1  0x00007ffff7c10036 in std::__cxx11::list<std::pair<int, int>, std::allocator<std::pair<int, int> > >::push_front(std::pair<int, int> const&) ()
+   from ./lib/libbf.so
+#2  0x00007ffff7c0f3ea in memory_manager::Cache::unpin(memory_manager::File*, int const&, bool) () from ./lib/libbf.so
+#3  0x00007ffff7c1304e in memory_manager::MemoryManager::UnpinBlock(int, memory_manager::File*, bool) () from ./lib/libbf.so
+#4  0x00007ffff7c0e04c in BF_UnpinBlock () from ./lib/libbf.so
+#5  0x00007ffff7fb9eb1 in HP_Unpin () from ./lib/libhp_file.so
+#6  0x0000555555558333 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:70
+#7  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#8  0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#9  0x0000555555557629 in main () at ./examples/my_main.c:206
+#0  0x00007ffff7c1018a in std::_List_node<std::pair<std::pair<int, int>, std::pair<memory_manager::Block, std::_List_iterator<std::pair<int, int> > > > >::_M_valptr() () from ./lib/libbf.so
+#1  0x00007ffff7c0fadb in std::_List_iterator<std::pair<std::pair<int, int>, std::pair<memory_manager::Block, std::_List_iterator<std::pair<int, int> > > > >::operator->() const () from ./lib/libbf.so
+#2  0x00007ffff7c1220b in memory_manager::Hash::find(std::pair<int, int> const&) () from ./lib/libbf.so
+#3  0x00007ffff7c0f1fb in memory_manager::Cache::get(memory_manager::File*, int const&, memory_manager::Block*) () from ./lib/libbf.so
+#4  0x00007ffff7c12eee in memory_manager::MemoryManager::GetBlock(int, memory_manager::File*, memory_manager::Block*) () from ./lib/libbf.so
+#5  0x00007ffff7c0defc in BF_GetBlock () from ./lib/libbf.so
+#6  0x00007ffff7fb9ca6 in HP_GetRecord () from ./lib/libhp_file.so
+#7  0x0000555555558324 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:69
+#8  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#9  0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#10 0x0000555555557629 in main () at ./examples/my_main.c:206
+#0  0x00007ffff7c0fefd in std::pair<int, int>::pair<int, true>(int&&, int const&) () from ./lib/libbf.so
+#1  0x00007ffff7c0f1e4 in memory_manager::Cache::get(memory_manager::File*, int const&, memory_manager::Block*) () from ./lib/libbf.so
+#2  0x00007ffff7c12eee in memory_manager::MemoryManager::GetBlock(int, memory_manager::File*, memory_manager::Block*) () from ./lib/libbf.so
+#3  0x00007ffff7c0defc in BF_GetBlock () from ./lib/libbf.so
+#4  0x00007ffff7fb9ca6 in HP_GetRecord () from ./lib/libhp_file.so
+#5  0x0000555555558324 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:69
+#6  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#7  0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#8  0x0000555555557629 in main () at ./examples/my_main.c:206
+οι συναρτήεσις που μου έδωσες είανι ίδιες με αυτές που έχω γράψει. Έβαλα το  print και το αποτέλεσμα είναι αυτό: #0  0x00007ffff7c1018b in std::_List_node<std::pair<std::pair<int, int>, std::pair<memory_manager::Block, std::_List_iterator<std::pair<int, int> > > > >::_M_valptr() () from ./lib/libbf.so
+#1  0x00007ffff7c0fadb in std::_List_iterator<std::pair<std::pair<int, int>, std::pair<memory_manager::Block, std::_List_iterator<std::pair<int, int> > > > >::operator->() const () from ./lib/libbf.so
+#2  0x00007ffff7c1220b in memory_manager::Hash::find(std::pair<int, int> const&) () from ./lib/libbf.so
+#3  0x00007ffff7c0f1fb in memory_manager::Cache::get(memory_manager::File*, int const&, memory_manager::Block*) () from ./lib/libbf.so
+#4  0x00007ffff7c12eee in memory_manager::MemoryManager::GetBlock(int, memory_manager::File*, memory_manager::Block*) () from ./lib/libbf.so
+#5  0x00007ffff7c0defc in BF_GetBlock () from ./lib/libbf.so
+#6  0x00007ffff7fb9e9b in HP_Unpin () from ./lib/libhp_file.so, // Δημιουργεί έναν Iterator και επιστρέφει δείκτη σε αυτόν.
+CHUNK_Iterator CHUNK_CreateIterator(int fileDesc, int blocksInChunk){
+    CHUNK_Iterator it;
+    it.file_desc = fileDesc;
+    it.blocksInChunk = blocksInChunk;
+    it.current = 1; // Η εγγραφή 0 περιέχει τα metadata, τα δεδομένα ξεκινάνε από το μπλοκ 1.
+    it.lastBlocksID = HP_GetIdOfLastBlock(fileDesc);
+    return it;
+}
+
+// Παίρνει το επόμενο κομμάτι του αρχείου και το περνάει σε ένα CHUNK.
+int CHUNK_GetNext(CHUNK_Iterator *iterator,CHUNK* chunk){
+    if(iterator->current > iterator->lastBlocksID){ // Έλεγχος εάν υπάρχουν άλλα chunks.
+        return -1;  // Επιστρέφεις αποτυχία.
+    }
+
+    // Εδώ εξετάζουμε την περίπτωση το τελευταίο chunk έχει λιγότερα μπλοκ από τα προηγούμενα. 
+    // Πχ. αν κάθε ένα έχει 5 μπλοκ και τα συνολικά είναι 17,
+    // στο τελευταίο θα προσπαθήσουμε να προσπελάσουμε το 18ο και θα πάρουμε segmentation fault.
+    // Άρα λέμε στο πρόγραμμα να σταματάει στο 17ο. +1 για να παίρνεις και το current.
+    int remainingBlocks = iterator->lastBlocksID - iterator->current + 1;
+    int thisChunkBlocks = iterator->blocksInChunk;
+    if (thisChunkBlocks > remainingBlocks) {
+        thisChunkBlocks = remainingBlocks;
+    }
+
+    // Συμπλήρωση του chunk struct.
+    chunk->file_desc = iterator->file_desc;
+    chunk->from_BlockId = iterator->current;
+    chunk->to_BlockId = iterator->current + thisChunkBlocks - 1;    // -1 γιατί έχουμε και το current.
+    chunk->blocksInChunk = thisChunkBlocks;
+
+    // Μετράς πόσα records έχει συνολικά το chunk. Για κάθε μπλοκ του chunk, παίρνεςι τα records και τα αρθοίζεις.
+    int totalRecords = 0;
+    for (int i = chunk->from_BlockId; i <= chunk->to_BlockId; i++) {
+        int temp = HP_GetRecordCounter(chunk->file_desc, i);
+        HP_Unpin(chunk->file_desc,i);
+        totalRecords += temp;
+    }
+    chunk->recordsInChunk = totalRecords;
+
+    // Εδώ ορίζεις σε δείκτη ποιό είναι το επόμενο block.
+    iterator->current += thisChunkBlocks;
+
+    return 0;   // Επιστρέφεις επιτυχία.
+
+}
+#0  0x00007ffff7c1093a in std::_Rb_tree_iterator<std::pair<int const, int> >::_Rb_tree_iterator(std::_Rb_tree_node_base*) () from ./lib/libbf.so
+#1  0x00007ffff7c1033e in std::_Rb_tree<int, std::pair<int const, int>, std::_Select1st<std::pair<int const, int> >, std::less<int>, std::allocator<std::pair<int const, int> > >::end() () from ./lib/libbf.so
+#2  0x00007ffff7c1029e in std::_Rb_tree<int, std::pair<int const, int>, std::_Select1st<std::pair<int const, int> >, std::less<int>, std::allocator<std::pair<int const, int> > >::find(int const&) () from ./lib/libbf.so
+#3  0x00007ffff7c0fbd9 in std::map<int, int, std::less<int>, std::allocator<std::pair<int const, int> > >::find(int const&) () from ./lib/libbf.so
+#4  0x00007ffff7c0f4bf in memory_manager::Cache::unpin(memory_manager::File*, int const&, bool) () from ./lib/libbf.so
+#5  0x00007ffff7c1304e in memory_manager::MemoryManager::UnpinBlock(int, memory_manager::File*, bool) () from ./lib/libbf.so
+#6  0x00007ffff7c0e04c in BF_UnpinBlock () from ./lib/libbf.so
+#7  0x00007ffff7fb9eb1 in HP_Unpin () from ./lib/libhp_file.so
+#8  0x0000555555558333 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:70
+#9  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#10 0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#11 0x0000555555557629 in main () at ./examples/my_main.c:206
+#0  0x00007ffff7c1093a in std::_Rb_tree_iterator<std::pair<int const, int> >::_Rb_tree_iterator(std::_Rb_tree_node_base*) () from ./lib/libbf.so
+#1  0x00007ffff7c1033e in std::_Rb_tree<int, std::pair<int const, int>, std::_Select1st<std::pair<int const, int> >, std::less<int>, std::allocator<std::pair<int const, int> > >::end() () from ./lib/libbf.so
+#2  0x00007ffff7c1029e in std::_Rb_tree<int, std::pair<int const, int>, std::_Select1st<std::pair<int const, int> >, std::less<int>, std::allocator<std::pair<int const, int> > >::find(int const&) () from ./lib/libbf.so
+#3  0x00007ffff7c0fbd9 in std::map<int, int, std::less<int>, std::allocator<std::pair<int const, int> > >::find(int const&) () from ./lib/libbf.so
+#4  0x00007ffff7c0f4bf in memory_manager::Cache::unpin(memory_manager::File*, int const&, bool) () from ./lib/libbf.so
+#5  0x00007ffff7c1304e in memory_manager::MemoryManager::UnpinBlock(int, memory_manager::File*, bool) () from ./lib/libbf.so
+#6  0x00007ffff7c0e04c in BF_UnpinBlock () from ./lib/libbf.so
+#7  0x00007ffff7fb9eb1 in HP_Unpin () from ./lib/libhp_file.so
+#8  0x0000555555558333 in CHUNK_GetIthRecordInChunk (chunk=0x7fffffffd520, i=0, record=0x7fffffffd460) at ./src/chunk.c:70
+#9  0x0000555555557c0a in sort_Chunk (chunk=0x7fffffffd520) at ./src/sort.c:51
+#10 0x0000555555557b5d in sort_FileInChunks (file_desc=0, numBlocksInChunk=5) at ./src/sort.c:35
+#11 0x0000555555557629 in main () at ./examples/my_main.c:206
+grep -n "HP_Unpin" ./src/chunk.c
+137:        HP_Unpin(file_desc, iterator->currentBlockId);
+143:            HP_Unpin(file_desc, iterator->currentBlockId); , nl -ba ./src/chunk.c | sed -n '60,75p'
+    60      int offset = i; // i-οσό record από την αρχή του chunck, σε κάθε πέρασμα αφαιρούμε recCount.
+    61      int file_desc = chunk->file_desc;   // Το περνάμε σε τοπική μεταβλητή για αξιοπιστία.
+    62        // Από που ξεικάμε να ψάχνουμε.
+    63
+    64      // Ξεκινάμε να ψάχνουμε.
+    65      for(int blockId = chunk->from_BlockId; blockId <= chunk->to_BlockId; blockId++ ){
+    66          int counter = HP_GetRecordCounter(file_desc, blockId);  // Πόσα records έχει αυτό το μπλοκ.
+    67          if(offset < counter){   // Βρήκαμε αυτό που ψάχνουμε.
+    68              // H HP_GetRecord δεν λέει στην περιγραφή του .h αρχείου εάν επιστρέφει -1, 0 ή 1 σε περίπτωση αποτυχίας. 
+    69              int result = HP_GetRecord(file_desc, blockId, offset, record);
+    70              if(result == 1){    // Αν η HP_UpdateRecord ήταν επιτυχής επιστρέφει 1.
+    71                  return 0;
+    72              }else{  // Η HP_UpdateRecord απέτυχε.
+    73                  return -1;
+    74              }
+    75          }else{  // Δεν το βρήκαμε, συνεχίζουμε.
+./build/my_main
+Done. Final sorted file produced in last merge output.
+δεν κατάλαβα, άρα τελείωσε το π´ρογραμμα; πως μπορώ να δω αν το αποτέλεσμα είναι σωστό; makefile: sort:
+	@echo " Compile sort_main ...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/sort_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/sort_main
+
+my_main:
+	@echo " Compile my_main ...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/my_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/my_main
+αυτό είναι το record.c: #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <record.h>
+
+const char* names[] = {
+    "Yannis", "Christofos", "Sofia", "Marianna", "Vagelis", "Maria", "Iosif", "Dionisis", "Konstantina",
+    "Theofilos", "Giorgos", "Dimitris", "Eleni", "Nikos", "Panagiotis", "Despina", "Apostolos", "Eirini",
+    "Antonis", "Katerina", "Alexandros", "Anastasia", "Leonidas", "Paraskevi", "Petros", "Eva", "Ioannis",
+    "Stavroula", "Spyros", "Elisavet", "Andreas", "Efi", "Themis", "Aspasia", "Kostas", "Marina", "Giannis",
+    "Vasiliki", "Dimitra", "Stefanos", "Rania", "Nikolaos", "Ioulia", "Charalambos", "Chrysa", "Thanasis",
+    "Georgia", "Michalis", "Zoi", "Konstantinos", "Daphne", "Pavlos", "Xristina", "Kyriakos", "Loukia",
+    "Sotiris", "Kalliopi", "Efthimis", "Fotini", "Alexandra", "Giorgis", "Danae", "Vasileios", "Magda",
+    "Eleni", "Manolis", "Anna", "Dionysios", "Parthena", "Dimitroula", "Georgios", "Argyro", "Aggelos",
+    "Angeliki", "Ioanna", "Christina", "Antonia", "Vassilis", "Ifigeneia", "Xenophon", "Eleftheria",
+    "Achilleas", "Polina", "Nefeli", "Ioannis", "Melina", "Christos", "Olga", "Aikaterini", "Athanasios",
+    "Irini", "Nikola", "Dora", "Elektra", "Rafail", "Klio", "Thalia", "Anastasios", "Violeta", "Efstathios"
+};
+
+const char* surnames[] = {
+    "Ioannidis", "Svingos", "Karvounari", "Rezkalla", "Nikolopoulos", "Berreta", "Koronis", "Gaitanis", 
+    "Oikonomou", "Mailis", "Michas", "Halatsis", "Papadopoulos", "Pappas", "Georgiou", "Nikolaidis", "Katsaros",
+    "Zervas", "Livanos", "Makris", "Papageorgiou", "Sarantopoulos", "Konstantinidis", "Antonopoulos", "Petrakis",
+    "Apostolou", "Daskalakis", "Manolopoulos", "Papadakis", "Stamatakis", "Sotiriou", "Economou", "Tsilimparis",
+    "Vlachos", "Mavridis", "Samaras", "Zachariadis", "Makridis", "Stavropoulos", "Diamantopoulos", "Matsoukas",
+    "Fotopoulos", "Papantonis", "Gkikas", "Vourlis", "Apostolopoulos", "Papaioannou", "Sidiropoulos", "Maragos",
+    "Gkotsis", "Papazoglou", "Antoniou", "Vasilakis", "Papoutsi", "Papageorgiou", "Papadellis", "Papazachariou",
+    "Gkouskos", "Zachariou", "Paraskevopoulos", "Papadimitriou", "Stavrou", "Lamprou", "Kostopoulos", "Fotinakis",
+    "Theodorou", "Gkogkas", "Papazisis", "Laskaris", "Gkizas", "Dellis", "Tsigaridas", "Papamichael", "Trikalinos",
+    "Zafiriadis", "Kalliris", "Nastou", "Tsekouras", "Makrakis", "Tsimiklis", "Papanikolaou", "Saroglou", "Papaloukas"
+};
+
+const char* cities[] = {
+    "Athens", "Thessaloniki", "Patras", "Heraklion", "Larissa", "Volos", "Ioannina", "Komotini", "Rhodes", "Chania",
+    "Kavala", "Serres", "Drama", "Veria", "Trikala", "Lamia", "Kozani", "Alexandroupoli", "Katerini", "Kalamata",
+    "Mytilene", "Chalcis", "Sparta", "Kos", "Pyrgos", "Argos", "Livadeia", "Preveza", "Amaliada", "Karpenisi",
+    "Xanthi", "Karditsa", "Ptolemaida", "Grevena", "Corfu", "Florina", "Nafplio", "Edessa", "Rethymno", "Kalymnos",
+    "Naxos", "Arta", "Korinthos", "Chios", "Syros", "Kilkis", "Thiva", "Piraeus", "Eleusina", "Chalkida",
+    "Peristeri", "Marousi", "Kallithea", "Acharnes", "Nea Ionia", "Ilioupoli", "Vrilissia", "Papagou", "Glyfada",
+    "Kifisia", "Kalamaria", "Thermaikos", "Serres", "Drama", "Agrinio", "Chalcis", "Myrina", "Gaziosmanpasa",
+    "Usak", "SanFran", "LosAngeles", "NewYork", "Tokyo", "London", "Paris", "Berlin", "Madrid", "Rome",
+    "Sydney", "Toronto", "Dubai", "Mumbai", "Beijing", "Moscow", "Cairo", "RioDeJaneiro", "BuenosAires", "MexicoCity"
+};
+
+static int id = 0;
+
+Record randomRecord(){
+    Record record;
+    // create a record
+    record.id = id++;
+    int r = rand() % 100;
+    memcpy(record.name, names[r], strlen(names[r]) + 1);
+    r = rand() % 82;    
+    memcpy(record.surname, surnames[r], strlen(surnames[r]) + 1);
+    r = rand() % 50;
+    memcpy(record.city, cities[r], strlen(cities[r]) + 1);
+    memcpy(record.delimiter, "\n", strlen("\n") + 1);
+    return record;
+}
+
+void printRecord(Record record){
+    printf("%d,%s,%s,%s\n",record.id,record.name,record.surname,record.city);
+
+}
+
+
+πες μου τι να τρέξω για να ω εάν είανι όντως ταξινομιμένο το τελικό αποτέλεσμα
+./build/my_main
+Done. Final sorted file produced in last merge output.
+SORTED OK (0 records checked) , // Επιστρέφει εάν πρέπει να γίνει swap του rec1 με το rec2, συγκρίνοντας αλβαβιτικά το όνομα με το επώνυμο.
+bool shouldSwap(Record* rec1,Record* rec2){
+    int cmpr = strcmp(rec1->name, rec2->name);
+    if(cmpr > 0){
+        return true;
+    }else if(cmpr < 0){
+        return false;
+    }
+
+    // Αν τα ονόματα είναι ίδια τότε ελέγχουμε τα επώνυμα.
+    cmpr = strcmp(rec1->surname, rec2->surname);
+    if(cmpr > 0){
+        return true;
+    }else{  //  Αν τα επώνυμα είναι ίσα ή "rec1->surname < rec2->surname", τότε false.
+        return false;
+    }
+}
+./build/my_main
+Done. Final sorted file produced in last merge output.
+VERIFY: lastBlock=0
+SORTED OK (0 records checked) , μετά τις αλλαγές βγάζει αυτό ./build/my_main
+Final file last block = 0
+SORTED OK (0 records checked) , my_main.c: // examples/my_main.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
+#include "bf.h"
+#include "hp_file.h"
+#include "record.h"
+#include "sort.h"
+#include "merge.h"
+
+#define RECORDS_NUM 500
+#define FILE_NAME   "data.db"
+#define OUT_PREFIX  "merge_out"
+
+static int ceil_div(int a, int b) {
+    return (a + b - 1) / b;
+}
+
+static void make_pass_filename(char *out, size_t out_sz, const char *prefix, int pass) {
+    // Θα βγάζει: merge_out0.db, merge_out1.db, ...
+    snprintf(out, out_sz, "%s%d.db", prefix, pass);
+}
+
+static int createAndPopulateHeapFile(const char* filename) {
+    remove(filename);   // αν δεν υπάρχει, δεν πειράζει
+
+    // Δημιουργία heap file
+    if (HP_CreateFile((char*)filename) != 0) {
+        printf("Error: HP_CreateFile failed\n");
+        return -1;
+    }
+
+    int fd;
+    if (HP_OpenFile((char*)filename, &fd) != 0) {
+        printf("Error: HP_OpenFile failed\n");
+        return -1;
+    }
+
+    // Γέμισμα με τυχαία records (όπως το sort_main)
+    srand(12569874);
+    for (int i = 0; i < RECORDS_NUM; i++) {
+        Record r = randomRecord();
+        HP_InsertEntry(fd, r);
+    }
+
+    return fd;
+}
+
+static void verify_sorted(int file_desc) {
+    int lastBlock = HP_GetIdOfLastBlock(file_desc);
+
+    Record prev, cur;
+    bool havePrev = false;
+    int idx = 0;
+
+    for (int b = 1; b <= lastBlock; b++) {              // block 0 = metadata
+        int count = HP_GetRecordCounter(file_desc, b);  // πόσα records στο block
+
+        for (int j = 0; j < count; j++) {
+            int ok = HP_GetRecord(file_desc, b, j, &cur);
+            if (ok != 1) {
+                printf("VERIFY: HP_GetRecord failed at block=%d rec=%d\n", b, j);
+                return;
+            }
+
+            if (havePrev) {
+                // Αν πρέπει να γίνει swap(prev, cur), τότε είναι εκτός σειράς
+                if (shouldSwap(&prev, &cur)) {
+                    printf("NOT SORTED at global_index=%d (block=%d rec=%d)\n", idx, b, j);
+                    printf("prev: "); printRecord(prev);
+                    printf("cur : "); printRecord(cur);
+                    return;
+                }
+            } else {
+                havePrev = true;
+            }
+
+            prev = cur;
+            idx++;
+        }
+    }
+
+    printf("SORTED OK (%d records checked)\n", idx);
+}
+
+int main(void) {
+    int chunkSize = 5;
+    int bWay = 4;
+
+    // Απαραίτητο init για BF layer
+    BF_Init(LRU);
+
+    // 1) Φτιάξε & γέμισε input heap file
+    int inFD = createAndPopulateHeapFile(FILE_NAME);
+    if (inFD < 0) {
+        BF_Close();
+        return 1;
+    }
+
+    // 2) Sort phase: ταξινόμηση ανά chunk
+    sort_FileInChunks(inFD, chunkSize);
+
+    // 3) Υπολογισμός πόσοι συρμοί υπάρχουν αρχικά
+    int lastBlockId = HP_GetIdOfLastBlock(inFD);  // data blocks: 1..lastBlockId
+    int dataBlocks = lastBlockId;
+    int k = ceil_div(dataBlocks, chunkSize);
+
+    int pass = 0;
+    int currentInFD = inFD;
+    int currentChunkSize = chunkSize;
+
+    // 4) Merge passes: κάθε pass γράφει σε νέο heap file
+    while (k > 1) {
+        char outName[128];
+        make_pass_filename(outName, sizeof(outName), OUT_PREFIX, pass);
+        
+        remove(outName);
+        
+        if (HP_CreateFile(outName) != 0) {
+            printf("Error: HP_CreateFile failed for %s\n", outName);
+            HP_CloseFile(currentInFD);
+            BF_Close();
+            return 1;
+        }
+
+        int outFD;
+        if (HP_OpenFile(outName, &outFD) != 0) {
+            printf("Error: HP_OpenFile failed for %s\n", outName);
+            HP_CloseFile(currentInFD);
+            BF_Close();
+            return 1;
+        }
+
+        merge(currentInFD, currentChunkSize, bWay, outFD);
+
+        // κλείσε το προηγούμενο input, και το output
+        HP_CloseFile(currentInFD);
+        HP_CloseFile(outFD);
+
+        // το output γίνεται input για το επόμενο pass
+        if (HP_OpenFile(outName, &currentInFD) != 0) {
+            printf("Error: HP_OpenFile re-open failed for %s\n", outName);
+            BF_Close();
+            return 1;
+        }
+
+        // ενημέρωση για επόμενο pass
+        k = ceil_div(k, bWay);
+        currentChunkSize *= bWay;
+        pass++;
+    }
+
+    printf("Final file last block = %d\n", HP_GetIdOfLastBlock(currentInFD));
+    // Προαιρετικά: τύπωσε για επιβεβαίωση
+    verify_sorted(currentInFD);
+
+    HP_CloseFile(currentInFD);
+    BF_Close();
+    return 0;
+}
+./build/my_main
+Insert failed at i=0
+After populate: lastBlock=1
+MaxRecordsPerBlock=9
+Block1 count=1
+Final file last block = 1
+VERIFY: HP_GetRecord failed at block=1 rec=0
+make my_main
+Compile my_main...
+gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+        ./examples/my_main.c \
+        ./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+        -lhp_file -lbf \
+        -o ./build/my_main
+./examples/my_main.c: In function ‘createAndPopulateHeapFile’:
+./examples/my_main.c:39:60: error: ‘i’ undeclared (first use in this function); did you mean ‘id’?
+   39 |     if (rc != 0) { printf("Insert failed at i=%d rc=%d\n", i, rc); break; }
+      |                                                            ^
+      |                                                            id
+./examples/my_main.c:39:60: note: each undeclared identifier is reported only once for each function it appears in
+./examples/my_main.c:41:15: error: incompatible type for argument 1 of ‘BF_PrintError’
+   41 | BF_PrintError("after HP_InsertEntry");
+      |               ^~~~~~~~~~~~~~~~~~~~~~
+      |               |
+      |               char *
+In file included from ./examples/my_main.c:7:
+./include/bf.h:156:33: note: expected ‘BF_ErrorCode’ but argument is of type ‘char *’
+  156 | void BF_PrintError(BF_ErrorCode err);
+      |                    ~~~~~~~~~~~~~^~~
+./examples/my_main.c: In function ‘main’:
+./examples/my_main.c:156:5: error: ‘ok’ undeclared (first use in this function); did you mean ‘k’?
+  156 | if (ok != 0) { printf("VERIFY failed...\n"); return; }
+      |     ^~
+      |     k
+./examples/my_main.c:156:46: warning: ‘return’ with no value, in function returning non-void
+  156 | if (ok != 0) { printf("VERIFY failed...\n"); return; }
+      |                                              ^~~~~~
+./examples/my_main.c:83:5: note: declared here
+   83 | int main(void) {
+      |     ^~~~
+make: *** [Makefile:13: my_main] Error 1 , // examples/my_main.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
+#include "bf.h"
+#include "hp_file.h"
+#include "record.h"
+#include "sort.h"
+#include "merge.h"
+
+#define RECORDS_NUM 500
+#define FILE_NAME   "data.db"
+#define OUT_PREFIX  "merge_out"
+
+static int ceil_div(int a, int b) {
+    return (a + b - 1) / b;
+}
+
+static void make_pass_filename(char *out, size_t out_sz, const char *prefix, int pass) {
+    // Θα βγάζει: merge_out0.db, merge_out1.db, ...
+    snprintf(out, out_sz, "%s%d.db", prefix, pass);
+}
+
+int createAndPopulateHeapFile(char* filename){
+  HP_CreateFile(filename);
+  
+  int file_desc;
+  HP_OpenFile(filename, &file_desc);
+    printf("Opened fd=%d\n", file_desc);
+
+  Record record;
+  srand(12569874);
+  for (int id = 0; id < RECORDS_NUM; ++id)
+  {
+    record = randomRecord();
+    int rc = HP_InsertEntry(file_desc, record);
+    if (rc != 0) { printf("Insert failed at i=%d rc=%d\n", i, rc); break; }
+    printf("Insert rc=%d\n", rc);
+BF_PrintError("after HP_InsertEntry");
+  }
+  return file_desc;
+}
+
+static void verify_sorted(int file_desc) {
+    int lastBlock = HP_GetIdOfLastBlock(file_desc);
+
+    Record prev, cur;
+    bool havePrev = false;
+    int idx = 0;
+
+    for (int b = 1; b <= lastBlock; b++) {              // block 0 = metadata
+        int count = HP_GetRecordCounter(file_desc, b);  // πόσα records στο block
+
+        for (int j = 0; j < count; j++) {
+            int ok = HP_GetRecord(file_desc, b, j, &cur);
+            if (ok != 1) {
+                printf("VERIFY: HP_GetRecord failed at block=%d rec=%d\n", b, j);
+                return;
+            }
+
+            if (havePrev) {
+                // Αν πρέπει να γίνει swap(prev, cur), τότε είναι εκτός σειράς
+                if (shouldSwap(&prev, &cur)) {
+                    printf("NOT SORTED at global_index=%d (block=%d rec=%d)\n", idx, b, j);
+                    printf("prev: "); printRecord(prev);
+                    printf("cur : "); printRecord(cur);
+                    return;
+                }
+            } else {
+                havePrev = true;
+            }
+
+            prev = cur;
+            idx++;
+        }
+    }
+
+    printf("SORTED OK (%d records checked)\n", idx);
+}
+
+int main(void) {
+    int chunkSize = 5;
+    int bWay = 4;
+
+    // Απαραίτητο init για BF layer
+    BF_Init(LRU);
+
+    // 1) Φτιάξε & γέμισε input heap file
+    int inFD = createAndPopulateHeapFile(FILE_NAME);
+    printf("After populate: lastBlock=%d\n", HP_GetIdOfLastBlock(inFD));
+    printf("MaxRecordsPerBlock=%d\n", HP_GetMaxRecordsInBlock(inFD));
+    printf("Block1 count=%d\n", (HP_GetIdOfLastBlock(inFD) >= 1) ? HP_GetRecordCounter(inFD, 1) : -1);
+    if (inFD < 0) {
+        BF_Close();
+        return 1;
+    }
+
+    // 2) Sort phase: ταξινόμηση ανά chunk
+    sort_FileInChunks(inFD, chunkSize);
+
+    // 3) Υπολογισμός πόσοι συρμοί υπάρχουν αρχικά
+    int lastBlockId = HP_GetIdOfLastBlock(inFD);  // data blocks: 1..lastBlockId
+    int dataBlocks = lastBlockId;
+    int k = ceil_div(dataBlocks, chunkSize);
+
+    int pass = 0;
+    int currentInFD = inFD;
+    int currentChunkSize = chunkSize;
+
+    // 4) Merge passes: κάθε pass γράφει σε νέο heap file
+    while (k > 1) {
+        char outName[128];
+        make_pass_filename(outName, sizeof(outName), OUT_PREFIX, pass);
+        
+        remove(outName);
+        
+        if (HP_CreateFile(outName) != 0) {
+            printf("Error: HP_CreateFile failed for %s\n", outName);
+            HP_CloseFile(currentInFD);
+            BF_Close();
+            return 1;
+        }
+
+        int outFD;
+        if (HP_OpenFile(outName, &outFD) != 0) {
+            printf("Error: HP_OpenFile failed for %s\n", outName);
+            HP_CloseFile(currentInFD);
+            BF_Close();
+            return 1;
+        }
+
+        merge(currentInFD, currentChunkSize, bWay, outFD);
+
+        // κλείσε το προηγούμενο input, και το output
+        HP_CloseFile(currentInFD);
+        HP_CloseFile(outFD);
+
+        // το output γίνεται input για το επόμενο pass
+        if (HP_OpenFile(outName, &currentInFD) != 0) {
+            printf("Error: HP_OpenFile re-open failed for %s\n", outName);
+            BF_Close();
+            return 1;
+        }
+
+        // ενημέρωση για επόμενο pass
+        k = ceil_div(k, bWay);
+        currentChunkSize *= bWay;
+        pass++;
+    }
+
+    printf("Final file last block = %d\n", HP_GetIdOfLastBlock(currentInFD));
+    // Προαιρετικά: τύπωσε για επιβεβαίωση
+    verify_sorted(currentInFD);
+
+    HP_CloseFile(currentInFD);
+    BF_Close();
+    return 0;
+} , με έχεις μπερδέψει, αυτό έβγαλε και ο κώδικάς μου είναι αυτός
+./build/my_main
+Opened fd=0
+HP_InsertEntry rc=0 at id=0
+HP_InsertEntry rc=0 at id=1
+HP_InsertEntry rc=0 at id=2
+After populate: lastBlock=56
+MaxRecordsPerBlock=9
+Block1 count=9
+Final file last block = 0
+VERIFY: lastBlock=0
+SORTED OK (0 records checked)
+δεν μπορώ να βρω που λες στον κώδικα merge: #include <stdio.h>
+#include <stdbool.h>
+#include <merge.h>
+#include <stdlib.h>
+#include "chunk.h"
+#include "sort.h"
+#include "hp_file.h"
+#include "record.h"
+#include "merge.h"
+ 
+// Εδώ μαζεύουμε μέχρι bWay ταξινομημένους συρμούς, κρατάμε το τρέχον record από τον καθένα.
+// Κάθε φορά γράφουμε στο output το μικρότερο, και προχωράμε μόνο τον συρμό που το έδωσε, μέχρι να τελειώσουν.
+void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc ){
+    // Αν bWay <= 0 δεν έχει νόημα να τρέξει merge.
+    if (bWay <= 0) {
+        return;
+    }
+
+    // Iterator που επιστρέφει chunks μεγέθους chunkSize blocks από το input.
+    CHUNK_Iterator it = CHUNK_CreateIterator(input_FileDesc, chunkSize);
+
+    // Δυναμικά arrays μεγέθους bWay γιατον χειρισμό των chunks και records.
+    CHUNK *chunks = malloc((size_t)bWay * sizeof(CHUNK));   // Αποθκευση συρμών που συνχωνεύονται.
+    CHUNK_RecordIterator *recIters = malloc((size_t)bWay * sizeof(CHUNK_RecordIterator));   // Διάβασμα records από τα chunks.
+    Record *current = malloc((size_t)bWay * sizeof(Record));    // Τρέχων record.
+    bool *hasRecord = malloc((size_t)bWay * sizeof(bool));  // Εάν υπάρχουν διαθέσιμα records.
+
+    // Έλεγχος αποτυχίας δέσμευσης μνήμης.
+    if (!chunks || !recIters || !current || !hasRecord) {
+        free(chunks);
+        free(recIters);
+        free(current);
+        free(hasRecord);
+        return; // Αποτυχία λόγω μνήμης.
+    }
+
+    // Κάθε loop παίρνει μια ομάδα μέχρι bWay συρμούς και τους κάνει merge.
+    while (1) {
+        int takenChunks = 0;    // Πόσα chunks πήραμε αυτή τη φορά.
+
+        // Παίρνουμε μέχρι bWay chunks από το input.
+        for (int i = 0; i < bWay; i++) {
+            // Ζητάς το επόμενο chunk και αν δεν έχει σταματάς.
+            if (CHUNK_GetNext(&it, &chunks[i]) != 0) {
+                break;
+            }
+            takenChunks++; // Πήραμε επιτυχώς chunks και αυξάνουμε το πλήθος τους στην τρέχουσα ομάδα του loop.
+
+            // Iterator records για αυτόν τον συρμό.
+            recIters[i] = CHUNK_CreateRecordIterator(&chunks[i]);
+
+            // Προσπαθείς να πάρεις το πρώτο record του chunk.
+            hasRecord[i] = (CHUNK_GetNextRecord(&recIters[i], &current[i]) == 0);
+        }
+
+        // Αν δεν πήραμε ούτε ένα chunk, τελείωσε το input.
+        if (takenChunks == 0) {
+            break;
+        }
+
+        // Κάθε loop γράφει ένα record στο output, το μικρότερο εξ αυτών.
+        while (1) {
+            int best = -1;
+
+            // Βρίσκουμε ποιος έχει το μικρότερο τρέχον record.
+            for (int i = 0; i < takenChunks; i++) {
+                if (!hasRecord[i]) {    // Αν δεν υπάρχει διαθέσιμο record, πας στο επόμενο.
+                    continue;
+                }
+
+                // Εδώ  ελέγχουμε εάν το best που το ορίσαμε -1 ως η μικρότερη τιμή, πρέπει να κάνει swap  με αυτή που εξετάζουμε τώρα.
+                // Αν είναι η πρώτη μπάινει best αυτή, αλλιώς η μκρότερη από τις δύο.
+                if (best == -1 || shouldSwap(&current[best], &current[i])) {
+                    best = i;
+                }
+            }
+
+            // Αν δεν βρέθηκε best, έχει τελειώσει. Σπάμε το while(1).
+            if (best == -1) {
+                break;
+            }
+
+            // Γράψε το μικρότερο record στο output, ώστε με κάθε πέρασμα να έχουμε εν τέλη ταξινομημενο output.
+            HP_InsertEntry(output_FileDesc, current[best]);
+
+            // Φέρε το επόμενο record, για να γίνει ξανά η διαδικασία.
+            hasRecord[best] = (CHUNK_GetNextRecord(&recIters[best], &current[best]) == 0);
+        }
+    }
+
+    // Καθάρισμα μνήμης.
+    free(chunks);
+    free(recIters);
+    free(current);
+    free(hasRecord);
+} , CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk){
+    CHUNK_RecordIterator it;    // Τοπική μεταβλητή για chunk, block & record.
+    it.chunk = *chunk;  // Αντιγραφή ολόκληρου του CHUNK struct μέσα στον iterator.
+    it.currentBlockId = chunk->from_BlockId;    // Από που ξεκινάς την ανάγνωση.
+    it.cursor = 0;  // Ποιό record μέσα στο block διαβάζω.
+    return it;
+}
+
+// Επιστρέφει το record που δείχνει αυτή τη στιγμή ο iterator και μετά προχωρά τον δείκτη, 
+// έτσι ώστε στην επόμενη κλήση να επιστραφεί το επόμενο record.
+int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator,Record* record){
+    if (iterator->currentBlockId > iterator->chunk.to_BlockId) {
+        return -1; // τέλος chunk
+    }
+
+    // Εξωτερικό loop για να ελέγχουμε εάν υπάρχουν blocks μέσα στο chunk που δεν εχουμε ελέγξει ακόμα.
+    while (iterator->currentBlockId <= iterator->chunk.to_BlockId) {
+        int recCount = HP_GetRecordCounter(iterator->chunk.file_desc, iterator->currentBlockId);    // Πόσα records έχει αυτότο μπλοκ.
+        
+        // Εάν υπάρχουν και άλλα records μέσα σε αυτό το block, χωρίς να μετράς και το τελυταίο.
+        if (iterator->cursor < recCount) {
+            // Παίρνεις το παρόν record και προχωράς στο επόμενο του ίδιου block. 
+            int result = HP_GetRecord(iterator->chunk.file_desc, iterator->currentBlockId, iterator->cursor, record);
+            iterator->cursor++;
+
+            return (result == 1) ? 0 : -1;
+        } else {    // Αλλιώς, πας στο επόμενο block και ξεκινάς να ελέγχεις από το πρώτο του record.
+            iterator->currentBlockId++;
+            iterator->cursor = 0;
+        }
+    }
+
+    return -1;  // Η συνάρτηση επιστρέφει αποτυχία.
+}
+./build/my_main
+Opened fd=0
+HP_InsertEntry rc=0 at id=0
+HP_InsertEntry rc=0 at id=1
+HP_InsertEntry rc=0 at id=2
+After populate: lastBlock=56
+MaxRecordsPerBlock=9
+Block1 count=9
+BF Error: The file can not be closed because there are available pin blocks
+δεν βρίσκω το if (ok != 1) fail; , #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "bf.h"
+#include "hp_file.h"
+#include "record.h"
+#include "sort.h"
+#include "merge.h"
+#include "chunk.h"
+
+// Επιστρέφει εάν πρέπει να γίνει swap του rec1 με το rec2, συγκρίνοντας αλβαβιτικά το όνομα με το επώνυμο.
+bool shouldSwap(Record* rec1,Record* rec2){
+    int cmpr = strcmp(rec1->name, rec2->name);
+    if(cmpr > 0){
+        return true;
+    }else if(cmpr < 0){
+        return false;
+    }
+
+    // Αν τα ονόματα είναι ίδια τότε ελέγχουμε τα επώνυμα.
+    cmpr = strcmp(rec1->surname, rec2->surname);
+    if(cmpr > 0){
+        return true;
+    }else{  //  Αν τα επώνυμα είναι ίσα ή "rec1->surname < rec2->surname", τότε false.
+        return false;
+    }
+}
+
+// Παίρνει CHUNKS από το αρχείο, και τα ταξινομεί ξεχωριστά σε κάθε πέρασμα.
+void sort_FileInChunks(int file_desc, int numBlocksInChunk){
+    // Θέλουμε έναν iterator για να ξέρουμε κάθε φορά πιo CHUNK δουλεύουμε. 
+    CHUNK_Iterator it = CHUNK_CreateIterator(file_desc, numBlocksInChunk);
+    CHUNK ch;   // Το CHUNK που θα δουλέψουμε.
+    while(CHUNK_GetNext(&it, &ch) == 0){    // Η GetNext επιστρέφει 0 αν είναι επιτυχής, δηλαδή υπάρχει επόμενο CHUNK.
+        sort_Chunk(&ch);    // Περνάμε στην short το κάθε CHUNK για ταξινόμηση.
+    }
+}
+
+// Συγκρίνει ενα ένα τα records και τα ταξινομεί, ώστε όταν τελειώσει να είναι σε αλβαβητική σειρά μέσα στο CHUNK. 
+void sort_Chunk(CHUNK* chunk){
+    int n = chunk->recordsInChunk;  // Παίρνουμε πόσα records έχει το CHUNK για να ταξινομήσουμε.
+    if(n <= 0)  // Δεν υπάρχουν records για ταξινόμηση.
+        return;
+
+    Record r1, r2;
+
+    // Αλγόριθμος bubble sort.
+    for(int i = 0; i < n-1; i++){
+        for(int j = 0; j < n-1-i; j++){
+            // Παίρνουμε δύο συνεχόμενα records για να τα συγκρίνουμε, αφού ελέγξουμε πρώτα ότι υπάρχουν.
+            if(CHUNK_GetIthRecordInChunk(chunk, j, &r1) != 0)
+                return;
+            if(CHUNK_GetIthRecordInChunk(chunk, j+1, &r2) != 0)
+                return;
+            // Ελέγχουμε εάν χρειάζεται να κάνουμε swap τις θέσεις τους.
+            if(shouldSwap(&r1, &r2)){
+                CHUNK_UpdateIthRecord(chunk, j, r2);
+                CHUNK_UpdateIthRecord(chunk, j+1, r1);
+            }
+        }
+    }
+}
+./build/my_main
+Opened fd=0
+HP_InsertEntry rc=0 at id=0
+HP_InsertEntry rc=0 at id=1
+HP_InsertEntry rc=0 at id=2
+After populate: lastBlock=56
+MaxRecordsPerBlock=9
+Block1 count=9
+Final file last block = 56
+VERIFY: lastBlock=56
+SORTED OK (500 records checked)
+BF Error: The file can not be closed because there are available pin blocks
+./build/my_main
+Opened fd=0
+HP_InsertEntry rc=0 at id=0
+HP_InsertEntry rc=0 at id=1
+HP_InsertEntry rc=0 at id=2
+After populate: lastBlock=56
+MaxRecordsPerBlock=9
+Block1 count=9
+Final file last block = 56
+VERIFY: lastBlock=56
+SORTED OK (500 records checked)
+για αυτά που είπες στο τέλος, δείξε μου τι να βάλω μέσα στον κώδικα και που
+./build/my_main
+Opened fd=0
+HP_InsertEntry rc=0 at id=0
+HP_InsertEntry rc=0 at id=1
+HP_InsertEntry rc=0 at id=2
+After populate: lastBlock=56
+MaxRecordsPerBlock=9
+Block1 count=9
+Final file last block = 56
+Final sorted file: merge_out1.db
+VERIFY: lastBlock=56
+SORTED OK (500 records checked)
+έτσι πρέπει να είναι: all: sort my_main
+
+sort:
+	@echo "Compile sort_main...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/sort_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/sort_main
+
+my_main:
+	@echo "Compile my_main...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/my_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/my_main
+
+clean:
+	rm -f ./build/sort_main ./build/my_main
+	rm -f data.db
+	rm -f merge_out*.db out*.db
+
+make clean
+make
+./build/my_main
+όταν βάζω ατό στο makefile all: sort my_main
+
+sort:
+	@echo "Compile sort_main...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/sort_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/sort_main
+
+my_main:
+	@echo "Compile my_main...";
+	gcc -g -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ \
+		./examples/my_main.c \
+		./src/record.c ./src/sort.c ./src/merge.c ./src/chunk.c \
+		-lhp_file -lbf \
+		-o ./build/my_main
+
+clean:
+	rm -f ./build/sort_main ./build/my_main
+	rm -f data.db
+	rm -f merge_out*.db out*.db
+
+make clean
+make
+./build/my_main, βγάζει Makefile:24: *** missing separator.  Stop.
+έβγαλε αυτό: ./build/my_main
+Opened fd=0
+HP_InsertEntry rc=0 at id=0
+HP_InsertEntry rc=0 at id=1
+HP_InsertEntry rc=0 at id=2
+After populate: lastBlock=56
+MaxRecordsPerBlock=9
+Block1 count=9
+Final file last block = 56
+Final sorted file: merge_out1.db
+First 10 records of final file:
+376,Achilleas,Apostolou,Drama
+16,Achilleas,Georgiou,Karpenisi
+114,Achilleas,Papazoglou,Amaliada
+11,Achilleas,ParaskevopoulosIoannina,Ioannina
+194,Achilleas,Stamatakis,Athens
+274,Achilleas,Svingos,Volos
+81,Achilleas,Tsigaridas,Xanthi
+146,Aggelos,Kostopoulos,Komotini
+176,Aggelos,Livanos,Karditsa
+421,Aggelos,Makris,Rethymno
+VERIFY: lastBlock=56
+SORTED OK (500 records checked), θέλω να κρατήσουμε την εκτύπωση των εγγραφών και το SORTED OK (500 records checked)  καθώς και ότι άλλο ζητάει η εργασία. Τα περιτά print θέλω να βγούνε
+θέλω να μου εξηγήσεις γραμμή γραμμή των παρακάτω κώδικα για να κάνω σχόλια σε αυτόν. int createAndPopulateHeapFile(char* filename){
+    remove(filename);
+
+    if (HP_CreateFile(filename) != 0) {
+        printf("HP_CreateFile failed\n");
+        return -1;
+    }
+
+    int file_desc;
+    if (HP_OpenFile(filename, &file_desc) != 0) {
+        printf("HP_OpenFile failed\n");
+        return -1;
+    }
+
+    srand(12569874);
+    for (int id = 0; id < RECORDS_NUM; ++id) {
+        Record r = randomRecord();
+
+        int rc = HP_InsertEntry(file_desc, r);
+    }
+
+    return file_desc;
+}
+
+static void verify_sorted(int file_desc) {
+    int lastBlock = HP_GetIdOfLastBlock(file_desc);
+
+    Record prev, cur;
+    bool havePrev = false;
+    int idx = 0;
+
+    for (int b = 1; b <= lastBlock; b++) {
+        int count = HP_GetRecordCounter(file_desc, b);
+
+        for (int j = 0; j < count; j++) {
+            int ok = HP_GetRecord(file_desc, b, j, &cur);
+
+            HP_Unpin(file_desc, b);
+ 
+            prev = cur;
+            havePrev = true;
+            idx++;
+        }
+    }
+
+    printf("SORTED OK (%d records checked)\n", idx);
+}
+
+// Η main συνάρτηση.
+int main(void) {
+    int chunkSize = 5;
+    int bWay = 4;
+
+    // Απαραίτητο init για BF layer.
+    BF_Init(LRU);
+
+    // 1) Φτιάξε & γέμισε input heap file
+    int inFD = createAndPopulateHeapFile(FILE_NAME);
+    if (inFD < 0) {
+        BF_Close();
+        return 1;
+    }
+
+    // Ταξινομεί in-place σε chunks των chunkSize blocks.
+    sort_FileInChunks(inFD, chunkSize);
+
+    // Υπολογίζουμε πόσα chunks έχει το αρχείο τώρα.
+    int lastBlockId = HP_GetIdOfLastBlock(inFD);  // lastBlockId περιλαμβάνει τα data blocks.
+    int dataBlocks = lastBlockId;   // Τα data ξεκινάνε από block 1.
+    int k = ceil_div(dataBlocks, chunkSize);    // k = πλήθος αρχικών chunk.
+
+    // Κάθε πέρασμα φτιάχνει νέο αρχείο.
+    int pass = 0;
+    int currentInFD = inFD;
+    int currentChunkSize = chunkSize;
+    char finalName[128];
+    strncpy(finalName, FILE_NAME, sizeof(finalName));
+    finalName[sizeof(finalName) - 1] = '\0';
+
+    // Όσο υπάρχουν περισσότερα από ένα chunk. Όταν k==1 έχουμε το τελικό αρχείο.
+    while (k > 1) {
+        char outName[128];
+        // Φτιάχνουμε όνομα για το output για την παρούσα επανάληψη του loop.
+        make_pass_filename(outName, sizeof(outName), OUT_PREFIX, pass);
+        strncpy(finalName, outName, sizeof(finalName));
+        finalName[sizeof(finalName) - 1] = '\0';
+        
+        remove(outName);
+        
+        // Δημιουργούμε νέο heap file για το αποτέλεσμα.
+        if (HP_CreateFile(outName) != 0) {
+            printf("Error: HP_CreateFile failed for %s\n", outName);
+            HP_CloseFile(currentInFD);
+            BF_Close();
+            return 1;
+        }
+
+        int outFD;  // File descriptor για το output.
+        if (HP_OpenFile(outName, &outFD) != 0) {
+            printf("Error: HP_OpenFile failed for %s\n", outName);  // Αδυναμία ανοίγματος αρχείου.
+            HP_CloseFile(currentInFD);
+            BF_Close();
+            return 1;
+        }
+
+        // Κάνουμε συγχώνευση bWay chunks μεγέθους currentChunkSize blocks.
+        merge(currentInFD, currentChunkSize, bWay, outFD);
+
+        // Κλείνουμε το προηγούμενο input, και το output.
+        HP_CloseFile(currentInFD);
+        HP_CloseFile(outFD);
+
+        // Το νέο input για την επόμενη loop είναι το αρχείο που μόλις φτιάξαμε.
+        if (HP_OpenFile(outName, &currentInFD) != 0) {
+            printf("Error: HP_OpenFile re-open failed for %s\n", outName);
+            BF_Close();
+            return 1;
+        }
+
+        // Ενημερώνουμε το τρέχον όνομα input, ώστε στο τέλος να ξέρουμε ποιο αρχείο είναι το τελικό.
+        // Κάθε νέος συρμός έχει currentChunkSize * bWay blocks
+        // Το πλήθος chunk γίνεται ceil(k / bWay).
+        k = ceil_div(k, bWay);
+        currentChunkSize *= bWay;
+        pass++;
+    }
+
+    // Τελικό αποτέλεσμα. Το currentInFD δείχνει στο τελικό ταξινομημένο αρχείο.
+    printf("Final sorted file: %s\n", finalName);
+    printf("First 10 records of final file:\n");
+    int lastB = HP_GetIdOfLastBlock(currentInFD);   
+    int printed = 0;
+    Record tmp;
+
+    for (int b = 1; b <= lastB && printed < 10; b++) {
+        int cnt = HP_GetRecordCounter(currentInFD, b);
+        for (int j = 0; j < cnt && printed < 10; j++) {
+            if (HP_GetRecord(currentInFD, b, j, &tmp) == 0) {
+                HP_Unpin(currentInFD, b);
+                printRecord(tmp);
+                printed++;
+            }
+        }
+    }
+
+    // Τυπώνουμε για επιβεβαίωση.
+    verify_sorted(currentInFD);
+    
+    // Κλείσιμο του αρχείου.
+    HP_CloseFile(currentInFD);
+    BF_Close();
+
+    return 0;
+}
